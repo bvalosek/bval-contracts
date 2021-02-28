@@ -129,16 +129,21 @@ contract BVAL721 is
       _startSequence(sequenceNumber, name_, description_, data_);
   }
 
+  // start a sequence with an engine
+  function startSequence(
+    uint16 sequenceNumber,
+    string memory name_,
+    string memory description_,
+    string memory data_,
+    ISequenceEngine engine) external onlyOwner {
+      _startSequence(sequenceNumber, name_, description_, data_);
+      _sequenceEngines[sequenceNumber] = engine;
+  }
+
   // complete the sequence
   // msg.sender MUST be contract owner
   function completeSequence(uint16 sequenceNumber) override external onlyOwner {
     _completeSequence(sequenceNumber);
-  }
-
-  // set the sequence engine
-  function setSequenceEngine(uint16 sequenceNumber, ISequenceEngine engine) external onlyOwner {
-    require(_sequenceEngines[sequenceNumber] == ISequenceEngine(address(0)), "engine already set");
-    _sequenceEngines[sequenceNumber] = engine;
   }
 
   // ---

@@ -63,6 +63,15 @@ See `Sequenced.sol`
 * A sequence can be "completed", preventing any further tokens from being minted in that sequence
 * A sequence cannot be re-started once completed
 * Multiple sequences may be started in parallel
+* A sequence may be registered with an "engine", which will be called during token state changes
+
+##### Sequence Engines
+
+Sequence engines allow for additional on-chain behaviors and mechanics to be added after the initial contract deploys.
+
+* A sequence engine implements a single method that is called during token state change
+* The sequence engine can validate the state change or cause additional side effects
+* The engine may override the value that is actually written to token state
 
 #### On-chain Metadata via Events
 
@@ -77,7 +86,8 @@ On-chain events are emitted to announce collection/sequence/token metadata in a 
 
 * Each token has a `uint256` state value associated with it
 * Only the token holder can set this state
-* State can be set to any arbitrary value
+* State can be set to any arbitrary value if no sequence engine is specified
+* State changes may be modified or constrained by a sequence engine
 * State is designed to be used to build on and off chain experiences in the future
 * Changing state may require $BVAL
 * State change cost is an intrinsic property of a token (encoded into its ID)

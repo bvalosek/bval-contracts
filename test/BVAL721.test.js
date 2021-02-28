@@ -1,6 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
 const BVAL721 = artifacts.require('BVAL721');
+const MockSequenceEngine = artifacts.require('MockSequenceEngine');
 const DESC = 'description';
 const IMAGE = 'https://image';
 const BASE_URI = 'https://tokens.test.com/';
@@ -388,6 +389,26 @@ contract('BVAL721', (accounts) => {
 
       const task = instance.setTokenState(tokenId, 123, '5000000000');
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'coin address not yet set');
+    });
+  });
+  describe('sequence engines', () => {
+    it('should call the sequence engine on state change', async () => {
+      const instance = await factory();
+      const engine = await MockSequenceEngine.new();
+
+      const tokenId = TOKENS[0];
+      await instance.startSequence('1', 'name', 'desc', 'image', engine.address);
+      await instance.mint(tokenId, 'name', 'description', 'image');
+
+      assert.equal((await engine.count()).toNumber(), 0);
+
+      await instance.setTokenState(tokenId, 123123123, 0);
+      assert.equal((await engine.count()).toNumber(), 1);
+      assert.equal((await instance.getTokenState(tokenId)).toNumber(), 1);
+
+      await instance.setTokenState(tokenId, 123123123, 0);
+      assert.equal((await engine.count()).toNumber(), 2);
+      assert.equal((await instance.getTokenState(tokenId)).toNumber(), 2);
     });
   });
 });
