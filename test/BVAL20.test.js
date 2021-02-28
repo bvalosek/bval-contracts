@@ -4,14 +4,20 @@ const timeMachine = require('ganache-time-traveler');
 const BVAL20 = artifacts.require('BVAL20');
 const BVAL721 = artifacts.require('BVAL721');
 
-const factory = () => BVAL20.new();
+const factory = async (startDate = '2021-02-07') => {
+  await timeMachine.advanceBlockAndSetTime(createTimestamp(startDate));
+  return BVAL20.new();
+}
+
 const factory721 = () => BVAL721.new({ description: 'desc', data: 'data', baseURI: 'uri' });
 
 const TOKENS = [
   // emission rate = 10, cost = 0
   '0x01510000000a000000000000000960096001488848fe00010001000100010001',
   // emission rate = 10, cost = 10
-  '0x0123000a000a000000000000000960096001488848fe00010001000100010001'
+  '0x0123000a000a000000000000000960096001488848fe00010001000100010001',
+  // emission rate = 10, cost = 0, mint date = 2025-02-28
+  '0x01ba0000000a00000000000000096009600148884eb300010001000100010001',
 ];
 
 const mintNFT = async (instance, tokenId = TOKENS[0]) => {
@@ -36,11 +42,11 @@ contract('BVAL20', (accounts) => {
       assert.isBelow(gasUsed, MAX_DEPLOYMENT_GAS);
     });
     it('should cost below target gas to claim', async () => {
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
       const instance = await factory();
       const instance721 = await factory721();
       await instance.setContract(1, instance721.address);
       const tokenId = await mintNFT(instance721);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
       const res = await instance.claim([tokenId]);
       assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
     });
@@ -95,6 +101,14 @@ contract('BVAL20', (accounts) => {
       const instance721 = await factory721();
       const tokenId = await mintNFT(instance721);
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-01-01'));
+      const accumulated = await instance.accumulated(tokenId);
+      assert.equal(accumulated.toString(), '0');
+    });
+    it('should not start with a bonus if minted after bonus date', async () => {
+      const instance = await factory();
+      const instance721 = await factory721();
+      const tokenId = await mintNFT(instance721, TOKENS[2]); // tokens mints on 2025-02-28
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2025-02-28'));
       const accumulated = await instance.accumulated(tokenId);
       assert.equal(accumulated.toString(), '0');
     });
@@ -173,8 +187,7 @@ contract('BVAL20', (accounts) => {
   describe('deadmans switch', () => {
     it('should not emit any more coins after deadman switch tripped', async () => {
       const [a1] = accounts;
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-02-28'));
-      const instance = await factory();
+      const instance = await factory('2021-02-28'); // start on mint date
       const instance721 = await factory721();
       await instance.setContract(1, instance721.address);
       const tokenId = await mintNFT(instance721);
@@ -185,7 +198,7 @@ contract('BVAL20', (accounts) => {
       assert.equal(balance.toString(), '3950000000000000000000'); // 365*10 + 30 bonus
 
       // ensure zero-ed out, even after advancing the clock
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2026-03-01'));
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2030-03-01'));
       const toClaim = await instance.accumulated(tokenId);
       assert.equal(toClaim.toString(), '0');
     });
