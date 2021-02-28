@@ -5,9 +5,8 @@ import "./@openzeppelin/Ownable.sol";
 import "./@openzeppelin/ERC20-MODIFIED.sol";
 import "./@openzeppelin/IERC721.sol";
 import "./TokenID.sol";
-import "./interfaces/IERC20Burnable.sol";
 
-contract BVAL20 is Ownable, ERC20, IERC20Burnable {
+contract BVAL20 is Ownable, ERC20 {
   using TokenID for uint256;
 
   uint internal constant ONE_DAY =  60 * 60 * 24;
@@ -38,7 +37,7 @@ contract BVAL20 is Ownable, ERC20, IERC20Burnable {
   //
 
   // burn msg sender's coins
-  function burn (uint256 amount) override external {
+  function burn (uint256 amount) external {
     _burn(_msgSender(), amount);
   }
 
@@ -100,7 +99,7 @@ contract BVAL20 is Ownable, ERC20, IERC20Burnable {
 
   // if msg sender is a BVAL NFT contract, bypass allowance check, otherwise
   // delegate to base ERC20 implementation
-  function transferFrom(address sender, address recipient, uint256 amount) public virtual override (ERC20, IERC20) returns (bool) {
+  function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
     // This allows $BVAL transfers executed by a BVAL-NFT contract to not force
     // the holder to call approve() first
     if (_allowedOperators[_msgSender()]) {

@@ -7,7 +7,12 @@ const BVAL721 = artifacts.require('BVAL721');
 const factory = () => BVAL20.new();
 const factory721 = () => BVAL721.new({ description: 'desc', data: 'data', baseURI: 'uri' });
 
-const TOKENS = ['0x01510000000a000000000000000960096001488848fe00010001000100010001'];
+const TOKENS = [
+  // emission rate = 10, cost = 0
+  '0x01510000000a000000000000000960096001488848fe00010001000100010001',
+  // emission rate = 10, cost = 10
+  '0x0123000a000a000000000000000960096001488848fe00010001000100010001'
+];
 
 const mintNFT = async (instance, tokenId = TOKENS[0]) => {
   await instance.startSequence('1', 'name', 'desc', 'image');
@@ -192,5 +197,22 @@ contract('BVAL20', (accounts) => {
       const task = instance.pingDeadmanSwitch();
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'deadman switch has been tripped');
     });
+  });
+  describe('burning on state change', () => {
+    it('should burn coins on state change', async () => {
+      const [a1] = accounts;
+      const instance = await factory();
+      const instance721 = await factory721();
+      await instance.setContract(1, instance721.address);
+      await instance721.setCoinContract(instance.address);
+      const tokenId = await mintNFT(instance721, TOKENS[1]);
+
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
+      await instance.claim([tokenId]);
+
+      await instance721.setTokenState(tokenId, '123456');
+      const balance = await instance.balanceOf(a1);
+      assert.equal(balance.toString(), '0');
+    })
   });
 });
