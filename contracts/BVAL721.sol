@@ -12,6 +12,7 @@ import "./interfaces/IRaribleRoyalties.sol";
 import "./interfaces/ITokenMetadata.sol";
 import "./interfaces/ITokenState.sol";
 import "./interfaces/IERC2981.sol";
+import "./interfaces/IERC20Burnable.sol";
 
 import "./TokenID.sol";
 import "./Sequenced.sol";
@@ -51,6 +52,8 @@ contract BVAL721 is
 
   // modifiable contract properties
   string private _baseURI;
+
+  IERC20Burnable private _coinContract;
 
   // individual token state
   mapping (uint256 => uint256) private _tokenStates;
@@ -145,10 +148,22 @@ contract BVAL721 is
   // Token State
   // ---
 
+  // set reference to coin contract
+  function setCoinContract(IERC20Burnable coinAddress) external onlyOwner {
+    require(_coinContract == IERC20Burnable(address(0)), "coin contract already set");
+    _coinContract = coinAddress;
+  }
+
   // set the state of a token
   // msg.sender MUST be approved or owner
   function setTokenState(uint256 tokenId, uint256 state) override external {
     require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
+    uint16 cost = tokenId.tokenStateChangeCost();
+    if (cost > 0) {
+      require(_coinContract != IERC20(address(0)), "coin address not yet set");
+      _coinContract.transferFrom(_msgSender(), address(this), cost);
+      _coinContract.burn(cost);
+    }
     _tokenStates[tokenId] = state;
     emit TokenState(tokenId, state);
   }

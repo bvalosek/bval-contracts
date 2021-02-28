@@ -11,7 +11,7 @@ const factory = () => BVAL721.new({ description: DESC, data: IMAGE, baseURI: BAS
 const silentMint = (contract, ...args) => contract.methods['mint(uint256)'](...args);
 
 // max gas for deployment
-const MAX_DEPLOYMENT_GAS = 2500000;
+const MAX_DEPLOYMENT_GAS = 2600000;
 
 // max amount of gas we want to allow for basic on-chain mutations
 const MAX_MUTATION_GAS = 100000;

@@ -17,11 +17,11 @@ library TokenID {
   }
 
   function tokenEmissionRate(uint256 tokenId) internal pure returns (uint16) {
-    return uint8(tokenId >> 26*8);
+    return uint16(tokenId >> 26*8);
   }
 
   function tokenStateChangeCost(uint256 tokenId) internal pure returns (uint16) {
-    return uint8(tokenId >> 28*8);
+    return uint16(tokenId >> 28*8);
   }
 
   function tokenChecksum(uint256 tokenId) internal pure returns (uint8) {
