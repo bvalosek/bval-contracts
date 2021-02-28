@@ -62,6 +62,7 @@ See `Sequenced.sol`
 * A token's sequence is encoded into its ID (see token ID encoding)
 * A sequence can be "completed", preventing any further tokens from being minted in that sequence
 * A sequence cannot be re-started once completed
+* Multiple sequences may be started in parallel
 
 #### On-chain Metadata via Events
 
