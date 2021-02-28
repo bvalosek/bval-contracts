@@ -163,8 +163,11 @@ contract BVAL20 is Ownable, ERC20 {
     uint256 claimed = 0;
 
     for (uint i = 0; i < tokenIds.length; i++) {
-      // resolve relevant NFT contract to assert msg sender is token holder
       uint256 tokenId = tokenIds[i];
+      require(tokenId.isTokenValid(), "malformed token");
+      require(tokenId.tokenVersion() > 0, "invalid token version");
+
+      // resolve relevant NFT contract to assert msg sender is token holder
       IERC721 collection = getContract(tokenId.tokenCollectionVersion());
       require(collection.ownerOf(tokenId) == _msgSender(), "only token holder can claim");
 

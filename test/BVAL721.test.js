@@ -8,8 +8,6 @@ const BASE_URI = 'https://tokens.test.com/';
 // if no from, defaults to default address for wallet
 const factory = () => BVAL721.new({ description: DESC, data: IMAGE, baseURI: BASE_URI });
 
-const silentMint = (contract, ...args) => contract.methods['mint(uint256)'](...args);
-
 // max gas for deployment
 const MAX_DEPLOYMENT_GAS = 2800000;
 
@@ -29,28 +27,25 @@ const TOKENS = [
   '625463860931548052672487315262993155011013108765537676204636166826724753409',
 ];
 
+// start a sequence and mint
+const simpleMint = async (instance, tokenId = TOKENS[0]) => {
+  await instance.startSequence('1', 'name', 'desc', 'data');
+  const res = await instance.mint(tokenId, 'name', 'desc', 'data');
+  return res;
+}
+
+
 contract('BVAL721', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
       const instance = await factory();
       let { gasUsed } = await web3.eth.getTransactionReceipt(instance.transactionHash);
       assert.isBelow(gasUsed, MAX_DEPLOYMENT_GAS);
-      console.log('deploy', gasUsed);
-    });
-    it('silent mint should cost less than target mutation gas', async () => {
-      const instance = await factory();
-      const tokenId = TOKENS[0];
-      const res = await instance.mint(tokenId);
-      assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
-      console.log('silent mint', res.receipt.gasUsed);
     });
     it('mint should cost less than target mutation gas', async () => {
       const instance = await factory();
-      const tokenId = TOKENS[0];
-      await instance.startSequence('1', 'name', 'desc', 'image');
-      const res = await instance.mint(tokenId, { name: 'name', description: 'desc', data: 'image' });
+      const res = await simpleMint(instance);
       assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
-      console.log('mint', res.receipt.gasUsed);
     });
     it('mint with longer strings should cost less than target mutation gas', async () => {
       const instance = await factory();
@@ -63,13 +58,11 @@ contract('BVAL721', (accounts) => {
         'QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU'
       );
       assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
-      console.log('real mint', res.receipt.gasUsed);
     });
     it('start sequence should cost less than target announce gas', async () => {
       const instance = await factory();
       const res = await instance.startSequence('1', 'name', 'desc', 'image');
       assert.isBelow(res.receipt.gasUsed, MAX_ANNOUNCE_GAS);
-      console.log('start sequence', res.receipt.gasUsed);
     });
     it('start seqeunce with longer strings should cost less than target announce gas', async () => {
       const instance = await factory();
@@ -80,14 +73,12 @@ contract('BVAL721', (accounts) => {
         'QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU'
       );
       assert.isBelow(res.receipt.gasUsed, MAX_ANNOUNCE_GAS);
-      console.log('real start sequence', res.receipt.gasUsed);
     });
     it('complete seqeunce should cost less than target announce gas', async () => {
       const instance = await factory();
       await instance.startSequence('1', 'name', 'desc', 'image');
       const res = await instance.completeSequence('1');
       assert.isBelow(res.receipt.gasUsed, MAX_ANNOUNCE_GAS);
-      console.log('complete sequence', res.receipt.gasUsed);
     });
   });
   describe('erc165 checks', () => {
@@ -157,7 +148,7 @@ contract('BVAL721', (accounts) => {
     it('should have a tokenURI', async () => {
       const instance = await factory();
       const tokenId = TOKENS[0];
-      await instance.mint(tokenId);
+      await simpleMint(instance, tokenId);
       const uri = await instance.tokenURI(tokenId);
       assert.typeOf(uri, 'string');
       assert.include(uri, tokenId);
@@ -176,7 +167,7 @@ contract('BVAL721', (accounts) => {
       const override = 'https://override';
       await instance.setBaseURI(override);
       const tokenId = TOKENS[0];
-      await instance.mint(tokenId);
+      await simpleMint(instance, tokenId);
       const uri = await instance.tokenURI(tokenId);
       assert.isString(uri);
       assert.include(uri, override);
@@ -192,14 +183,14 @@ contract('BVAL721', (accounts) => {
   describe('minting', () => {
     it('should allow owner to mint', async () => {
       const instance = await factory();
-      const tokenId = TOKENS[0];
-      await instance.mint(tokenId);
+      await simpleMint(instance);
     });
     it('should revert if non-owner attempts to mint', async () => {
       const [, a2] = accounts;
       const instance = await factory();
       const tokenId = TOKENS[0];
-      const task = silentMint(instance, tokenId, { from: a2 });
+      await instance.startSequence('1', 'name', 'desc', 'image');
+      const task = instance.mint(tokenId, 'name', 'desc', 'data', { from: a2 });
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not the owner');
     });
     it('should revert if minting before starting first sequence', async () => {
@@ -281,7 +272,7 @@ contract('BVAL721', (accounts) => {
       const instance = await factory();
       const tokenId = TOKENS[0];
       assert.equal(await instance.balanceOf(a1), 0);
-      await instance.mint(tokenId);
+      await simpleMint(instance, tokenId);
       assert.equal(await instance.balanceOf(a1), 1);
       await instance.burn(tokenId);
       assert.equal(await instance.balanceOf(a1), 0);
@@ -290,7 +281,7 @@ contract('BVAL721', (accounts) => {
       const [a1, a2] = accounts;
       const instance = await factory();
       const tokenId = TOKENS[0];
-      await instance.mint(tokenId);
+      await simpleMint(instance, tokenId);
       await instance.safeTransferFrom(a1, a2, tokenId);
       assert.equal(await instance.balanceOf(a1), 0);
       assert.equal(await instance.balanceOf(a2), 1);
@@ -302,7 +293,7 @@ contract('BVAL721', (accounts) => {
       const [a1, a2] = accounts;
       const instance = await factory();
       const tokenId = TOKENS[0];
-      await instance.mint(tokenId);
+      await simpleMint(instance, tokenId);
       assert.equal(await instance.balanceOf(a1), 1);
       const task = instance.burn(tokenId, { from: a2 });
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
@@ -312,7 +303,7 @@ contract('BVAL721', (accounts) => {
       const [a1, a2] = accounts;
       const instance = await factory();
       const tokenId = TOKENS[0];
-      await instance.mint(tokenId);
+      await simpleMint(instance, tokenId);
       await instance.safeTransferFrom(a1, a2, tokenId);
       const task = instance.burn(tokenId);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
@@ -389,21 +380,6 @@ contract('BVAL721', (accounts) => {
       await instance.setTokenState(tokenId, 123, { from: a2 });
       const state = await instance.getTokenState(tokenId);
       assert.equal(state.toNumber(), 123);
-    });
-  });
-  describe('token exists', () => {
-    it('should return false if does not exist', async () => {
-      const instance = await factory();
-      const exists = await instance.tokenExists(123);
-      assert.isFalse(exists);
-    });
-    it('should return true if exists', async () => {
-      const instance = await factory();
-      const tokenId = TOKENS[0];
-      await instance.startSequence('1', 'name', 'desc', 'image');
-      await instance.mint(tokenId, 'name', 'description', 'image');
-      const exists = await instance.tokenExists(tokenId);
-      assert.isTrue(exists);
     });
   });
 });

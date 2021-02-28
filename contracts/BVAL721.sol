@@ -103,14 +103,6 @@ contract BVAL721 is
       emit SecondarySaleFees(tokenId, recipients, getFeeBps(tokenId));
   }
 
-  // "silently" mint a token with no meta data
-  // token MUST be parseable
-  // msg.sender MUST be contract owner
-  function mint(uint256 tokenId) external onlyOwner {
-    require(tokenId.isTokenValid() == true, "malformed token");
-    _mint(owner(), tokenId);
-  }
-
   // destroy a token
   // msg.sender MUST be approved or owner
   function burn(uint256 tokenId) external {
@@ -118,11 +110,6 @@ contract BVAL721 is
     _burn(tokenId);
     delete _tokenURIs[tokenId];
     delete _tokenStates[tokenId];
-  }
-
-  // return true if a token exists
-  function tokenExists(uint256 tokenId) external view returns (bool) {
-    return _exists(tokenId);
   }
 
   // ---

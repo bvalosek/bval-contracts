@@ -141,6 +141,13 @@ contract('BVAL20', (accounts) => {
       const task = instance.claim([tokenId]);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'nothing to claim');
     });
+    it('should revert if provided a non-valid token', async () => {
+      const instance = await factory();
+      const instance721 = await factory721();
+      await instance.setContract(1, instance721.address);
+      const task = instance.claim([0]);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'malformed token');
+    });
     it('should revert if non-holder attempts to claim', async () => {
       const [, a2] = accounts;
       const instance = await factory();
