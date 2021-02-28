@@ -82,6 +82,11 @@ On-chain events are emitted to announce collection/sequence/token metadata in a 
 * Changing state may require $BVAL
 * State change cost is an intrinsic property of a token (encoded into its ID)
 
+#### Marketplace Interop
+
+* Implements Rarible's royalty interface
+* Implements OpenSea's collectionURI interface
+* Implements EIP-2981 royalty spec
 
 ### ERC-20
 
