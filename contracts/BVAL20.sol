@@ -13,13 +13,14 @@ contract BVAL20 is Ownable, ERC20 {
   uint internal constant ONE_YEAR = 60 * 60 * 24 * 365;
 
   // making these constants to avoid paying storage gas (no immutable strings yet)
-  string private constant _name = "@bvalosek Coin";
-  string private constant _symbol = "BVAL";
+  string private constant NAME = "@bvalosek Coin";
+  string private constant SYMBOL = "BVAL";
 
   // the collection version -> contract address mappings
   mapping (uint16 => IERC721) private _nftContracts;
 
   // used to determine if a contract is in the allow list (bypasses allowance check)
+  // this is only set when a collection mapping is added
   mapping (address => bool) private _allowedOperators;
 
   // mapping from a token ID to the last claim timestamp
@@ -28,8 +29,15 @@ contract BVAL20 is Ownable, ERC20 {
   // timestamp after which emission stops
   uint private _deadmanTimestamp;
 
+  // the time after which the bonus emissions stop for new NFTs
+  uint private immutable _bonusStopTimestamp;
+
+  // how many extra days of $BVAL an NFT comes with if minted within the bonus period
+  uint256 private constant BONUS_DAYS = 30;
+
   constructor() {
     _deadmanTimestamp = block.timestamp + ONE_YEAR;
+    _bonusStopTimestamp = block.timestamp + ONE_YEAR;
   }
 
   // ---
@@ -67,12 +75,12 @@ contract BVAL20 is Ownable, ERC20 {
 
   // coin name
   function name() public pure returns (string memory) {
-    return _name;
+    return NAME;
   }
 
   // coin symbol
   function symbol() public pure returns (string memory) {
-    return _symbol;
+    return SYMBOL;
   }
 
   // ---
@@ -114,6 +122,11 @@ contract BVAL20 is Ownable, ERC20 {
   // minting
   // ---
 
+  // timestamp the 1 month bonus $BVAl stops
+  function bonusStopTimestamp() public view returns (uint) {
+    return _bonusStopTimestamp;
+  }
+
   // determine total bval accumulated for a specific tokenId
   function accumulated(uint256 tokenId) public view returns (uint256) {
     // determine emission window, which is either mint -> now or mint -> deadman
@@ -130,7 +143,18 @@ contract BVAL20 is Ownable, ERC20 {
     uint period = emissionStop > claimFrom ? emissionStop - claimFrom : 0;
 
     // compute how much $BVAL to issue based on emission rate
-    uint256 toClaim = period * tokenId.tokenEmissionRate() * (10 ** decimals()) / ONE_DAY;
+    uint256 dailyRate = tokenId.tokenEmissionRate() * (10 ** decimals());
+    uint256 toClaim = period * dailyRate / ONE_DAY;
+
+    // add in bonus iff:
+    //   - token was minted before bonus stop time
+    //   - token is not a future mint
+    //   - token has not yet had any claims
+    bool applyBonus = emissionStart < _bonusStopTimestamp
+      && emissionStart <= block.timestamp
+      && lastClaim == 0;
+    toClaim += applyBonus ? dailyRate * BONUS_DAYS : 0;
+
     return toClaim;
   }
 

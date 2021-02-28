@@ -80,15 +80,15 @@ contract('BVAL20', (accounts) => {
       const tokenId = await mintNFT(instance721);
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
       const accumulated = await instance.accumulated(tokenId);
-      assert.equal(accumulated.toString(), '10000000000000000000');
+      assert.equal(accumulated.toString(), '310000000000000000000'); // 10 + 300 bonus
     });
-    it('should accumulate nothing to start', async () => {
+    it('should accumulate bonus right from the start', async () => {
       const instance = await factory();
       const instance721 = await factory721();
       const tokenId = await mintNFT(instance721);
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-02-28'));
       const accumulated = await instance.accumulated(tokenId);
-      assert.equal(accumulated.toString(), '0');
+      assert.equal(accumulated.toString(), '300000000000000000000');
     });
     it('should accumulate 0 if mint date in the future', async () => {
       const instance = await factory();
@@ -110,7 +110,7 @@ contract('BVAL20', (accounts) => {
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
       await instance.claim([tokenId]);
       const balance = await instance.balanceOf(a1);
-      assert.equal(balance.toString(), '10000000000000000000');
+      assert.equal(balance.toString(), '310000000000000000000'); // 10 + 300 bonus
 
       // ensure zero-ed out
       const toClaim = await instance.accumulated(tokenId);
@@ -148,7 +148,7 @@ contract('BVAL20', (accounts) => {
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
       await instance.claim([tokenId, tokenId, tokenId, tokenId, tokenId]);
       const balance = await instance.balanceOf(a1);
-      assert.equal(balance.toString(), '10000000000000000000');
+      assert.equal(balance.toString(), '310000000000000000000'); // 10 + 300
     });
     it('should only claim newly emitted coins', async () => {
       const [a1] = accounts;
@@ -167,7 +167,7 @@ contract('BVAL20', (accounts) => {
       await instance.claim([tokenId]);
 
       const balance = await instance.balanceOf(a1);
-      assert.equal(balance.toString(), '30000000000000000000');
+      assert.equal(balance.toString(), '330000000000000000000'); // 10 + 10 + 10 + 300 bonus
     });
   });
   describe('deadmans switch', () => {
@@ -182,7 +182,7 @@ contract('BVAL20', (accounts) => {
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2025-03-01'));
       await instance.claim([tokenId]);
       const balance = await instance.balanceOf(a1);
-      assert.equal(balance.toString(), '3650000000000000000000');
+      assert.equal(balance.toString(), '3950000000000000000000'); // 365*10 + 30 bonus
 
       // ensure zero-ed out, even after advancing the clock
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2026-03-01'));
@@ -212,7 +212,7 @@ contract('BVAL20', (accounts) => {
 
       await instance721.setTokenState(tokenId, '123456');
       const balance = await instance.balanceOf(a1);
-      assert.equal(balance.toString(), '0');
+      assert.equal(balance.toString(), '300000000000000000000'); // 10 + 300 - 10
     })
   });
 });

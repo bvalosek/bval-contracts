@@ -108,6 +108,8 @@ Based on a modified version of the latest ERC-20 implementation from OpenZeppeli
 * The holder of a BVAL-NFT can call the `claim` method with an array of token IDs
 * NFTs "emit" $BVAL at a rate determined by an emission rate encoded into their token IDs
 * Calling `claim` will mint new $BVAL corresponding to how much has been emitted since the last claim
+* Emission stops if deadman's switch has been tripped (existing accumulated $BVAL can still be claimed)
+* NFTs minted in the first year of the contract start with a bonus of 1 month's worth of accumulated $BVAL
 
 #### Deadman Switch
 
