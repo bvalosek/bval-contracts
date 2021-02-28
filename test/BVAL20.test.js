@@ -34,6 +34,16 @@ const MAX_DEPLOYMENT_GAS = 1500000;
 // max amount of gas we want to allow for basic on-chain mutations
 const MAX_MUTATION_GAS = 100000;
 
+let snapshotId;
+beforeEach(async() => {
+  const snapshot = await timeMachine.takeSnapshot();
+  snapshotId = snapshot['result'];
+});
+
+afterEach(async() => {
+  await timeMachine.revertToSnapshot(snapshotId);
+});
+
 contract('BVAL20', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
@@ -230,9 +240,24 @@ contract('BVAL20', (accounts) => {
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
       await instance.claim([tokenId]);
 
-      await instance721.setTokenState(tokenId, '123456');
+      await instance721.setTokenState(tokenId, '123456', 0);
       const balance = await instance.balanceOf(a1);
       assert.equal(balance.toString(), '300000000000000000000'); // 10 + 300 - 10
     })
+    it('should allow additional bribe during state change', async () => {
+      const [a1] = accounts;
+      const instance = await factory();
+      const instance721 = await factory721();
+      await instance.setContract(1, instance721.address);
+      await instance721.setCoinContract(instance.address);
+      const tokenId = await mintNFT(instance721, TOKENS[0]);
+
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-01'));
+      await instance.claim([tokenId]);
+
+      await instance721.setTokenState(tokenId, '123456', '200000000000000000000');
+      const balance = await instance.balanceOf(a1);
+      assert.equal(balance.toString(), '110000000000000000000'); // 10 + 300 - 200
+    });
   });
 });

@@ -104,7 +104,7 @@ contract('BVAL721', (accounts) => {
     });
     it('should implement ITokenState', async () => {
       const instance = await factory();
-      assert.isTrue(await instance.supportsInterface('0x125048df'));
+      assert.isTrue(await instance.supportsInterface('0xb3edd64b'));
     });
     it('should implement IERC2981', async () => {
       const instance = await factory();
@@ -362,7 +362,7 @@ contract('BVAL721', (accounts) => {
       const s1 = await instance.getTokenState(tokenId);
       assert.equal(s1.toNumber(), 0);
 
-      await instance.setTokenState(tokenId, 123);
+      await instance.setTokenState(tokenId, 123, 0);
       const s2 = await instance.getTokenState(tokenId);
       assert.equal(s2.toNumber(), 123);
     });
@@ -374,12 +374,20 @@ contract('BVAL721', (accounts) => {
       await instance.mint(tokenId, 'name', 'description', 'image');
       await instance.safeTransferFrom(a1, a2, tokenId);
 
-      const task = instance.setTokenState(tokenId, 123);
+      const task = instance.setTokenState(tokenId, 123, 0);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
 
-      await instance.setTokenState(tokenId, 123, { from: a2 });
+      await instance.setTokenState(tokenId, 123, 0, { from: a2 });
       const state = await instance.getTokenState(tokenId);
       assert.equal(state.toNumber(), 123);
+    });
+    it('should revert if bribing state change w/o coin contract set', async () => {
+      const instance = await factory();
+      const tokenId = TOKENS[0];
+      await simpleMint(instance, tokenId);
+
+      const task = instance.setTokenState(tokenId, 123, '5000000000');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'coin address not yet set');
     });
   });
 });

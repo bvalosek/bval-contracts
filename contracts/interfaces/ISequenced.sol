@@ -25,3 +25,12 @@ interface ISequenced {
     function completeSequence(uint16 sequenceNumber) external;
 
 }
+
+// interface ISequenceEngine {
+//   function processStateChange (
+//     uint256 tokenId,
+//     address owner,
+//     uint256 currentState,
+//     uint256 nextState,
+//     uint256
+// }

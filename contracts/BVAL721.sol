@@ -144,14 +144,15 @@ contract BVAL721 is
 
   // set the state of a token
   // msg.sender MUST be approved or owner
-  function setTokenState(uint256 tokenId, uint256 state) override external {
+  function setTokenState(uint256 tokenId, uint256 state, uint256 bribe) override external {
     require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
 
     // only care about the $BVAL contract if token has a state change cost
     uint16 costMult = tokenId.tokenStateChangeCost();
-    if (costMult > 0) {
+    if (costMult > 0 || bribe > 0) {
       require(_coinContract != BVAL20(address(0)), "coin address not yet set");
       uint256 cost = uint256(costMult) * 10 ** _coinContract.decimals();
+      cost += bribe;
       _coinContract.transferFrom(_msgSender(), address(this), cost);
       _coinContract.burn(cost);
     }
