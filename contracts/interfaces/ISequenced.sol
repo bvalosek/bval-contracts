@@ -26,11 +26,15 @@ interface ISequenced {
 
 }
 
-// interface ISequenceEngine {
-//   function processStateChange (
-//     uint256 tokenId,
-//     address owner,
-//     uint256 currentState,
-//     uint256 nextState,
-//     uint256
-// }
+// a contract that allows for extended state change functionality
+interface ISequenceEngine {
+
+  // will be called by BVAL721, if registered, before stage change occurs
+  // should return the actual value to be used for state
+  function processStateChange (
+    uint256 tokenId,
+    address owner,
+    uint256 currentState,
+    uint256 nextState,
+    uint256 bribe) external returns (uint256);
+}

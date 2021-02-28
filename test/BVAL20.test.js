@@ -146,8 +146,7 @@ contract('BVAL20', (accounts) => {
       await instance.setContract(1, instance721.address);
       const tokenId = await mintNFT(instance721);
 
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-05-01'));
-      await instance.claim([tokenId]);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2020-05-01'));
       const task = instance.claim([tokenId]);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'nothing to claim');
     });

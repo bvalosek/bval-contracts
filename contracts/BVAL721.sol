@@ -62,6 +62,9 @@ contract BVAL721 is
   // token URI override
   mapping (uint256 => string) private _tokenURIs;
 
+  // sequence engines
+  mapping (uint16 => ISequenceEngine) private _sequenceEngines;
+
   // constructor options
   struct ContractOptions {
     string description;
@@ -132,14 +135,20 @@ contract BVAL721 is
     _completeSequence(sequenceNumber);
   }
 
+  // set the sequence engine
+  function setSequenceEngine(uint16 sequenceNumber, ISequenceEngine engine) external onlyOwner {
+    require(_sequenceEngines[sequenceNumber] == ISequenceEngine(address(0)), "engine already set");
+    _sequenceEngines[sequenceNumber] = engine;
+  }
+
   // ---
   // Token State
   // ---
 
   // set reference to coin contract
-  function setCoinContract(BVAL20 coinAddress) external onlyOwner {
+  function setCoinContract(BVAL20 coin) external onlyOwner {
     require(_coinContract == BVAL20(address(0)), "coin contract already set");
-    _coinContract = coinAddress;
+    _coinContract = coin;
   }
 
   // set the state of a token
@@ -155,6 +164,17 @@ contract BVAL721 is
       cost += bribe;
       _coinContract.transferFrom(_msgSender(), address(this), cost);
       _coinContract.burn(cost);
+    }
+
+    // hook for future functionality
+    ISequenceEngine engine = _sequenceEngines[tokenId.tokenSequenceNumber()];
+    if (engine != ISequenceEngine(address(0))) {
+      state = engine.processStateChange(
+        tokenId,
+        ownerOf(tokenId),
+        _tokenStates[tokenId],
+        state,
+        bribe);
     }
 
     _tokenStates[tokenId] = state;
