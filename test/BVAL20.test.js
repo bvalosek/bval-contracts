@@ -232,7 +232,6 @@ contract('BVAL20', (accounts) => {
       const [a1] = accounts;
       const instance = await factory();
       const instance721 = await factory721();
-      await instance.setContract(1, instance721.address);
       await instance721.setCoinContract(instance.address);
       const tokenId = await mintNFT(instance721, TOKENS[1]);
 
@@ -247,7 +246,6 @@ contract('BVAL20', (accounts) => {
       const [a1] = accounts;
       const instance = await factory();
       const instance721 = await factory721();
-      await instance.setContract(1, instance721.address);
       await instance721.setCoinContract(instance.address);
       const tokenId = await mintNFT(instance721, TOKENS[0]);
 
