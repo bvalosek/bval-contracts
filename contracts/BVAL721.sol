@@ -4,18 +4,17 @@ pragma solidity ^0.8.0;
 import "./@openzeppelin/Strings.sol";
 import "./@openzeppelin/Ownable.sol";
 import "./@openzeppelin/ERC721-MODIFIED.sol";
-import "./@openzeppelin/IERC721Metadata.sol";
+// import "./@openzeppelin/IERC721Metadata.sol";
 
-import "./interfaces/ICollectionMetadata.sol";
 import "./interfaces/IOpenSeaContractURI.sol";
 import "./interfaces/IRaribleRoyalties.sol";
-import "./interfaces/ITokenMetadata.sol";
-import "./interfaces/ITokenState.sol";
 import "./interfaces/IERC2981.sol";
+import "./interfaces/ITokenMetadata.sol";
+// import "./interfaces/ITokenState.sol";
 
-import "./TokenID.sol";
 import "./Sequenced.sol";
-import "./BVAL20.sol";
+import "./TokenID.sol";
+// import "./BVAL20.sol";
 
 contract BVAL721 is
   // openzep bases
@@ -30,8 +29,6 @@ contract BVAL721 is
 
   // my interfaces
   ITokenMetadata,
-  ICollectionMetadata,
-  ITokenState,
 
   // marketplace interfaces
   IRaribleRoyalties,
@@ -53,17 +50,11 @@ contract BVAL721 is
   // modifiable contract properties
   string private _baseURI;
 
-  // point to $BVAL to spend on state change
-  BVAL20 private _coinContract;
-
   // individual token state
   mapping (uint256 => uint256) private _tokenStates;
 
   // token URI override
   mapping (uint256 => string) private _tokenURIs;
-
-  // sequence engines
-  mapping (uint16 => ISequenceEngine) private _sequenceEngines;
 
   // constructor options
   struct ContractOptions {
@@ -82,11 +73,6 @@ contract BVAL721 is
   // ---
 
   // mint a new token for the contract owner and emit metadata as an event
-  // token MUST be parseable
-  // token MUST have version > 0
-  // token MUST match contract collection version
-  // token MUST point to non-completed sequence
-  // msg.sender MUST be contract owner
   function mint(
     uint256 tokenId,
     string memory name_,
@@ -94,8 +80,7 @@ contract BVAL721 is
     string memory data_) external onlyOwner {
       require(tokenId.isTokenValid() == true, "malformed token");
       require(tokenId.tokenVersion() > 0, "invalid token version");
-      require(tokenId.tokenCollectionVersion() == _collectionVersion, "invalid collection version");
-      require(sequenceComplete(tokenId.tokenSequenceNumber()) == false, "sequence is complete");
+      require(getSequenceState(tokenId.tokenSequenceNumber()) == SequenceState.STARTED, "sequence is not active");
 
       _mint(owner(), tokenId);
       emit TokenMetadata(tokenId, name_, description_, data_);
@@ -120,77 +105,59 @@ contract BVAL721 is
   // ---
 
   // start sequence
-  // msg.sender MUST be contract owner
   function startSequence(
-    uint16 sequenceNumber,
+    uint16 number,
     string memory name_,
     string memory description_,
     string memory data_) override external onlyOwner {
-      _startSequence(sequenceNumber, name_, description_, data_);
-  }
-
-  // start a sequence with an engine
-  function startSequence(
-    uint16 sequenceNumber,
-    string memory name_,
-    string memory description_,
-    string memory data_,
-    ISequenceEngine engine) external onlyOwner {
-      _startSequence(sequenceNumber, name_, description_, data_);
-      _sequenceEngines[sequenceNumber] = engine;
+      _startSequence(number, name_, description_, data_);
   }
 
   // complete the sequence
-  // msg.sender MUST be contract owner
-  function completeSequence(uint16 sequenceNumber) override external onlyOwner {
-    _completeSequence(sequenceNumber);
+  function completeSequence(uint16 number) override external onlyOwner {
+    _completeSequence(number);
   }
 
   // ---
   // Token State
   // ---
 
-  // set reference to coin contract
-  function setCoinContract(BVAL20 coin) external onlyOwner {
-    require(_coinContract == BVAL20(address(0)), "coin contract already set");
-    _coinContract = coin;
-  }
 
-  // set the state of a token
-  // msg.sender MUST be approved or owner
-  function setTokenState(uint256 tokenId, uint256 state, uint256 bribe) override external {
-    require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
+  // // set the state of a token
+  // // msg.sender MUST be approved or owner
+  // function setTokenState(uint256 tokenId, uint256 state, uint256 bribe) override external {
+  //   require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
 
-    // only care about the $BVAL contract if token has a state change cost
-    uint16 costMult = tokenId.tokenStateChangeCost();
-    if (costMult > 0 || bribe > 0) {
-      require(_coinContract != BVAL20(address(0)), "coin address not yet set");
-      uint256 cost = uint256(costMult) * 10 ** _coinContract.decimals();
-      cost += bribe;
-      _coinContract.transferFrom(_msgSender(), address(this), cost);
-      _coinContract.burn(cost);
-    }
+  //   // only care about the $BVAL contract if token has a state change cost
+  //   uint16 costMult = tokenId.tokenStateChangeCost();
+  //   if (costMult > 0 || bribe > 0) {
+  //     require(_coinContract != BVAL20(address(0)), "coin address not yet set");
+  //     uint256 cost = uint256(costMult) * 10 ** _coinContract.decimals();
+  //     cost += bribe;
+  //     _coinContract.transferFrom(_msgSender(), address(this), cost);
+  //     _coinContract.burn(cost);
+  //   }
 
-    // hook for future functionality
-    ISequenceEngine engine = _sequenceEngines[tokenId.tokenSequenceNumber()];
-    if (engine != ISequenceEngine(address(0))) {
-      state = engine.processStateChange(
-        tokenId,
-        ownerOf(tokenId),
-        _tokenStates[tokenId],
-        state,
-        bribe);
-    }
+  //   // hook for future functionality
+  //   ISequenceEngine engine = _sequenceEngines[tokenId.tokenSequenceNumber()];
+  //   if (engine != ISequenceEngine(address(0))) {
+  //     state = engine.processStateChange(
+  //       tokenId,
+  //       ownerOf(tokenId),
+  //       _tokenStates[tokenId],
+  //       state,
+  //       bribe);
+  //   }
 
-    _tokenStates[tokenId] = state;
-    emit TokenState(tokenId, state);
-  }
+  //   _tokenStates[tokenId] = state;
+  //   emit TokenState(tokenId, state);
+  // }
 
-  // read the state of a token
-  function getTokenState(uint256 tokenId) override external view returns (uint256) {
-    require(_exists(tokenId), "invalid token");
-    return _tokenStates[tokenId];
-  }
+  // // read the state of a token
+  // function getTokenState(uint256 tokenId) override external view returns (uint256) {
+  //   require(_exists(tokenId), "invalid token");
+  //   return _tokenStates[tokenId];
+  // }
 
   // ---
   // Metadata
@@ -224,8 +191,6 @@ contract BVAL721 is
   }
 
   // set a token URI override
-  // msg.sender MUST be contract owner
-  // token MUST be valid token
   function setTokenURI(uint256 tokenId, string memory uri) external onlyOwner {
     require(_exists(tokenId), "invalid token");
     _tokenURIs[tokenId] = uri;
@@ -280,11 +245,9 @@ contract BVAL721 is
   // ---
 
   // ERC165
-  function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC721, Sequenced) returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public view virtual override (IERC165, ERC721) returns (bool) {
     return interfaceId == type(IERC721Metadata).interfaceId
-      || interfaceId == type(ICollectionMetadata).interfaceId
-      || interfaceId == type(ITokenMetadata).interfaceId
-      || interfaceId == type(ITokenState).interfaceId
+      // || interfaceId == type(ITokenState).interfaceId
       || interfaceId == type(IERC2981).interfaceId
       || interfaceId == type(IOpenSeaContractURI).interfaceId
       || interfaceId == type(IRaribleRoyalties).interfaceId

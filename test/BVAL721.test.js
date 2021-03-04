@@ -16,16 +16,14 @@ const MAX_DEPLOYMENT_GAS = 2800000;
 const MAX_MUTATION_GAS = 100000;
 
 // max amount of gas we want to allow for basic on-chain logs
-const MAX_ANNOUNCE_GAS = 50000;
+const MAX_ANNOUNCE_GAS = 60000;
 
 // decimal tokens , generated with token ID encoder util
 const TOKENS = [
-  // 1/1/1
-  '530054119433515298874989250222875555156328978334254252466069431952628318209',
-  // 1/2/1
-  '535354660627850451863739142725104310703811430024881109340434250556506243073',
-  // 2/1/1
-  '625463860931548052672487315262993155011013108765537676204636166826724753409',
+  // 1 - 1
+  '542422083536764891605055617762608442122700715211722983994819756335223078913',
+  // 2 - 10
+  '724407358168885144702775055006144136272562230227056159221917676176268132353',
 ];
 
 // start a sequence and mint
@@ -35,18 +33,19 @@ const simpleMint = async (instance, tokenId = TOKENS[0]) => {
   return res;
 }
 
-
 contract('BVAL721', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
       const instance = await factory();
       let { gasUsed } = await web3.eth.getTransactionReceipt(instance.transactionHash);
       assert.isBelow(gasUsed, MAX_DEPLOYMENT_GAS);
+      console.log('deploy', gasUsed);
     });
     it('mint should cost less than target mutation gas', async () => {
       const instance = await factory();
       const res = await simpleMint(instance);
       assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
+      console.log('mint', res.receipt.gasUsed);
     });
     it('mint with longer strings should cost less than target mutation gas', async () => {
       const instance = await factory();
@@ -59,11 +58,13 @@ contract('BVAL721', (accounts) => {
         'QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU'
       );
       assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
+      console.log('mint', res.receipt.gasUsed);
     });
     it('start sequence should cost less than target announce gas', async () => {
       const instance = await factory();
       const res = await instance.startSequence('1', 'name', 'desc', 'image');
       assert.isBelow(res.receipt.gasUsed, MAX_ANNOUNCE_GAS);
+      console.log('start sequence', res.receipt.gasUsed);
     });
     it('start seqeunce with longer strings should cost less than target announce gas', async () => {
       const instance = await factory();
@@ -74,12 +75,14 @@ contract('BVAL721', (accounts) => {
         'QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU'
       );
       assert.isBelow(res.receipt.gasUsed, MAX_ANNOUNCE_GAS);
+      console.log('start sequence', res.receipt.gasUsed);
     });
     it('complete seqeunce should cost less than target announce gas', async () => {
       const instance = await factory();
       await instance.startSequence('1', 'name', 'desc', 'image');
       const res = await instance.completeSequence('1');
       assert.isBelow(res.receipt.gasUsed, MAX_ANNOUNCE_GAS);
+      console.log('complete sequence', res.receipt.gasUsed);
     });
   });
   describe('erc165 checks', () => {
@@ -102,10 +105,6 @@ contract('BVAL721', (accounts) => {
     it('should implement OpenSea Collection Metadata', async () => {
       const instance = await factory();
       assert.isTrue(await instance.supportsInterface('0xe8a3d485'));
-    });
-    it('should implement ITokenState', async () => {
-      const instance = await factory();
-      assert.isTrue(await instance.supportsInterface('0xb3edd64b'));
     });
     it('should implement IERC2981', async () => {
       const instance = await factory();
@@ -197,19 +196,13 @@ contract('BVAL721', (accounts) => {
     it('should revert if minting before starting first sequence', async () => {
       const instance = await factory();
       const task = instance.mint(TOKENS[0], 'name', 'description', 'image');
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'invalid sequence number');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'sequence is not active');
     });
     it('should revert if minted with wrong sequence number', async () => {
       const instance = await factory();
       await instance.startSequence('1', 'name', 'desc', 'image');
       const task = instance.mint(TOKENS[1], 'name', 'description', 'image');
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'invalid sequence number');
-    });
-    it('should revert if minted with wrong collection version', async () => {
-      const instance = await factory();
-      await instance.startSequence('1', 'name', 'desc', 'image');
-      const task = instance.mint(TOKENS[2], 'name', 'description', 'image');
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'invalid collection version');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'sequence is not active');
     });
     it('should emit a metadata event on minting', async () => {
       const instance = await factory();
@@ -226,7 +219,7 @@ contract('BVAL721', (accounts) => {
           event.name === name &&
           event.description === description &&
           event.data === data &&
-          event.tokenId.toString() === tokenId.toString()
+          event.tokenId.toString() === tokenId
       );
     });
     it('should emit a SecondarySaleFees event on minting', async () => {
@@ -343,72 +336,6 @@ contract('BVAL721', (accounts) => {
       const rec = await instance.royaltyInfo(tokenId);
       assert.equal(rec[0].toString(), a1);
       assert.equal(rec[1].toNumber(), 100000);
-    });
-  });
-  describe('token state', () => {
-    it('should have a default token state of zero', async () => {
-      const instance = await factory();
-      const tokenId = TOKENS[0];
-      await instance.startSequence('1', 'name', 'desc', 'image');
-      await instance.mint(tokenId, 'name', 'description', 'image');
-      const state = await instance.getTokenState(tokenId);
-      assert.equal(state.toNumber(), 0);
-    });
-    it('should reflect set state', async () => {
-      const instance = await factory();
-      const tokenId = TOKENS[0];
-      await instance.startSequence('1', 'name', 'desc', 'image');
-      await instance.mint(tokenId, 'name', 'description', 'image');
-
-      const s1 = await instance.getTokenState(tokenId);
-      assert.equal(s1.toNumber(), 0);
-
-      await instance.setTokenState(tokenId, 123, 0);
-      const s2 = await instance.getTokenState(tokenId);
-      assert.equal(s2.toNumber(), 123);
-    });
-    it('should not allow non-holder to set state', async () => {
-      const [a1, a2] = accounts;
-      const instance = await factory();
-      const tokenId = TOKENS[0];
-      await instance.startSequence('1', 'name', 'desc', 'image');
-      await instance.mint(tokenId, 'name', 'description', 'image');
-      await instance.safeTransferFrom(a1, a2, tokenId);
-
-      const task = instance.setTokenState(tokenId, 123, 0);
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
-
-      await instance.setTokenState(tokenId, 123, 0, { from: a2 });
-      const state = await instance.getTokenState(tokenId);
-      assert.equal(state.toNumber(), 123);
-    });
-    it('should revert if bribing state change w/o coin contract set', async () => {
-      const instance = await factory();
-      const tokenId = TOKENS[0];
-      await simpleMint(instance, tokenId);
-
-      const task = instance.setTokenState(tokenId, 123, '5000000000');
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'coin address not yet set');
-    });
-  });
-  describe('sequence engines', () => {
-    it('should call the sequence engine on state change', async () => {
-      const instance = await factory();
-      const engine = await MockSequenceEngine.new();
-
-      const tokenId = TOKENS[0];
-      await instance.startSequence('1', 'name', 'desc', 'image', engine.address);
-      await instance.mint(tokenId, 'name', 'description', 'image');
-
-      assert.equal((await engine.count()).toNumber(), 0);
-
-      await instance.setTokenState(tokenId, 123123123, 0);
-      assert.equal((await engine.count()).toNumber(), 1);
-      assert.equal((await instance.getTokenState(tokenId)).toNumber(), 1);
-
-      await instance.setTokenState(tokenId, 123123123, 0);
-      assert.equal((await engine.count()).toNumber(), 2);
-      assert.equal((await instance.getTokenState(tokenId)).toNumber(), 2);
     });
   });
 });

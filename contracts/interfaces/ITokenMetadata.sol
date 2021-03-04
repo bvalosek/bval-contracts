@@ -12,4 +12,11 @@ interface ITokenMetadata {
         string description,
         string data);
 
+    // announce collection data
+    // must emit on contract instantiation
+    event CollectionMetadata(
+        string name,
+        string description,
+        string data);
+
 }
