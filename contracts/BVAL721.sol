@@ -3,8 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./@openzeppelin/Strings.sol";
 import "./@openzeppelin/Ownable.sol";
-import "./@openzeppelin/ERC721-MODIFIED.sol";
-// import "./@openzeppelin/IERC721Metadata.sol";
+import "./@openzeppelin/ERC721Enumerable.sol";
 
 import "./interfaces/IOpenSeaContractURI.sol";
 import "./interfaces/IRaribleRoyalties.sol";
@@ -19,13 +18,10 @@ import "./TokenID.sol";
 contract BVAL721 is
   // openzep bases
   Ownable,
-  ERC721,
+  ERC721Enumerable,
 
   // my additional bases
   Sequenced,
-
-  // standard interfaces
-  IERC721Metadata,
 
   // my interfaces
   ITokenMetadata,
@@ -40,15 +36,15 @@ contract BVAL721 is
   using Strings for uint256;
   using TokenID for uint256;
 
-  // immutable contract properties -- hardcoding since we cant use immutable
-  // strings yet
-  uint16 private constant _collectionVersion = 1;
-  string private constant _name = "@bvalosek Collection";
-  string private constant _symbol = "BVAL-NFT";
-  uint16 private constant _feeBps = 1000; // 10%
+  string private constant NAME = "@bvalosek Collection";
+  string private constant SYMBOL = "BVAL-NFT";
+
+  // immutable contract properties
+  uint16 private constant COLLECTION_VERSION = 1;
+  uint16 private constant FEE_BPS = 1000; // 10%
 
   // modifiable contract properties
-  string private _baseURI;
+  string private _gatewayURI;
 
   // individual token state
   mapping (uint256 => uint256) private _tokenStates;
@@ -63,9 +59,9 @@ contract BVAL721 is
     string baseURI;
   }
 
-  constructor (ContractOptions memory options) {
-    _baseURI = options.baseURI;
-    emit CollectionMetadata(_name, options.description, options.data);
+  constructor (ContractOptions memory options) ERC721(NAME, SYMBOL) {
+    _gatewayURI = options.baseURI;
+    emit CollectionMetadata(NAME, options.description, options.data);
   }
 
   // ---
@@ -163,18 +159,8 @@ contract BVAL721 is
   // Metadata
   // ---
 
-  // collection name
-  function name() external pure override returns (string memory) {
-    return _name;
-  }
-
-  // collection symbol
-  function symbol() external pure override returns (string memory) {
-    return _symbol;
-  }
-
   // token metadata URI
-  function tokenURI(uint256 tokenId) external view override returns (string memory) {
+  function tokenURI(uint256 tokenId) public view override returns (string memory) {
     require(_exists(tokenId), "invalid token");
 
     // if an override was set for this token
@@ -184,7 +170,7 @@ contract BVAL721 is
     }
 
     return string(abi.encodePacked(
-      _baseURI,
+      _gatewayURI,
       "/api/metadata/token/",
       tokenId.toString()
     ));
@@ -199,15 +185,15 @@ contract BVAL721 is
   // contract metadata URI (opensea)
   function contractURI() external view override returns (string memory) {
     return string(abi.encodePacked(
-      _baseURI,
+      _gatewayURI,
       "/api/metadata/collection/",
-      uint256(_collectionVersion).toString()
+      uint256(COLLECTION_VERSION).toString()
     ));
   }
 
   // swap out base URI
   function setBaseURI(string calldata uri) external onlyOwner {
-    _baseURI = uri;
+    _gatewayURI = uri;
   }
 
   // ---
@@ -226,7 +212,7 @@ contract BVAL721 is
   function getFeeBps(uint256 tokenId) override public view returns (uint[] memory) {
     require(_exists(tokenId), "invalid token");
     uint256[] memory ret = new uint[](1);
-    ret[0] = uint(_feeBps);
+    ret[0] = uint(FEE_BPS);
     return ret;
   }
 
@@ -236,16 +222,15 @@ contract BVAL721 is
 
   function royaltyInfo(uint256 tokenId) override external view returns (address receiver, uint256 amount) {
     require(_exists(tokenId), "invalid token");
-    return (owner(), uint256(_feeBps) * 100);
+    return (owner(), uint256(FEE_BPS) * 100);
   }
-
 
   // ---
   // introspection
   // ---
 
   // ERC165
-  function supportsInterface(bytes4 interfaceId) public view virtual override (IERC165, ERC721) returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public view virtual override (IERC165, ERC721Enumerable) returns (bool) {
     return interfaceId == type(IERC721Metadata).interfaceId
       // || interfaceId == type(ITokenState).interfaceId
       || interfaceId == type(IERC2981).interfaceId

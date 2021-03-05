@@ -13,7 +13,7 @@ const factory = () => BVAL721.new({ description: DESC, data: IMAGE, baseURI: BAS
 const MAX_DEPLOYMENT_GAS = 2800000;
 
 // max amount of gas we want to allow for basic on-chain mutations
-const MAX_MUTATION_GAS = 100000;
+const MAX_MUTATION_GAS = 150000;
 
 // max amount of gas we want to allow for basic on-chain logs
 const MAX_ANNOUNCE_GAS = 60000;
@@ -54,7 +54,7 @@ contract('BVAL721', (accounts) => {
       const res = await instance.mint(
         tokenId,
         'Example Token Name',
-        'This is an example of a token description that is a bit longer. Multiple sentences for more detail.',
+        'This is an example of a token description that is a bit longer',
         'QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU'
       );
       assert.isBelow(res.receipt.gasUsed, MAX_MUTATION_GAS);
