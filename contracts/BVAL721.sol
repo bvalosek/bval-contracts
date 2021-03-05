@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./@openzeppelin/Strings.sol";
-import "./@openzeppelin/Ownable.sol";
+import "./@openzeppelin/AccessControl.sol";
 import "./@openzeppelin/ERC721Enumerable.sol";
 
 import "./interfaces/IOpenSeaContractURI.sol";
@@ -17,7 +17,7 @@ import "./TokenID.sol";
 
 contract BVAL721 is
   // openzep bases
-  Ownable,
+  AccessControl,
   ERC721Enumerable,
 
   // my additional bases
@@ -43,11 +43,19 @@ contract BVAL721 is
   uint16 private constant COLLECTION_VERSION = 1;
   uint16 private constant FEE_BPS = 1000; // 10%
 
-  // modifiable contract properties
+  bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+  // base URI of token gateway
   string private _gatewayURI;
+
+  // address to send royalties to
+  address private _royaltyRecipient;
 
   // individual token state
   mapping (uint256 => uint256) private _tokenStates;
+
+  // mapping from a token ID to when its state lock expires
+  mapping (uint256 => uint) private _tokenLockExpiresAt;
 
   // token URI override
   mapping (uint256 => string) private _tokenURIs;
@@ -60,8 +68,39 @@ contract BVAL721 is
   }
 
   constructor (ContractOptions memory options) ERC721(NAME, SYMBOL) {
+    address msgSender = _msgSender();
+
+    _setupRole(DEFAULT_ADMIN_ROLE, msgSender);
+    _setupRole(MINTER_ROLE, msgSender);
+
     _gatewayURI = options.baseURI;
+    _royaltyRecipient = msgSender;
+
     emit CollectionMetadata(NAME, options.description, options.data);
+  }
+
+  // ---
+  // Admin
+  // ---
+
+  // set a token URI override
+  function setTokenURI(uint256 tokenId, string memory uri) external {
+    require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "requires DEFAULT_ADMIN_ROLE");
+    require(_exists(tokenId), "invalid token");
+    _tokenURIs[tokenId] = uri;
+  }
+
+
+  // swap out base URI
+  function setBaseURI(string calldata uri) external {
+    require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "requires DEFAULT_ADMIN_ROLE");
+    _gatewayURI = uri;
+  }
+
+  // set address that royalties are sent to
+  function setRoyaltyRecipient(address recipient) external {
+    require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "requires DEFAULT_ADMIN_ROLE");
+    _royaltyRecipient = recipient;
   }
 
   // ---
@@ -73,17 +112,19 @@ contract BVAL721 is
     uint256 tokenId,
     string memory name_,
     string memory description_,
-    string memory data_) external onlyOwner {
+    string memory data_) external {
+      address msgSender = _msgSender();
+      require(hasRole(MINTER_ROLE, msgSender), "requires MINTER_ROLE");
       require(tokenId.isTokenValid() == true, "malformed token");
       require(tokenId.tokenVersion() > 0, "invalid token version");
       require(getSequenceState(tokenId.tokenSequenceNumber()) == SequenceState.STARTED, "sequence is not active");
 
-      _mint(owner(), tokenId);
+      _mint(msgSender, tokenId);
       emit TokenMetadata(tokenId, name_, description_, data_);
 
       // rarible-style royalty info
       address[] memory recipients = new address[](1);
-      recipients[0] = owner();
+      recipients[0] = _royaltyRecipient;
       emit SecondarySaleFees(tokenId, recipients, getFeeBps(tokenId));
   }
 
@@ -105,12 +146,14 @@ contract BVAL721 is
     uint16 number,
     string memory name_,
     string memory description_,
-    string memory data_) override external onlyOwner {
+    string memory data_) override external {
+      require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
       _startSequence(number, name_, description_, data_);
   }
 
   // complete the sequence
-  function completeSequence(uint16 number) override external onlyOwner {
+  function completeSequence(uint16 number) override external {
+    require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
     _completeSequence(number);
   }
 
@@ -118,6 +161,21 @@ contract BVAL721 is
   // Token State
   // ---
 
+  // lock a set of tokens for 24 hours
+  function lockTokens(uint256[] calldata tokenIds) external {
+    uint expiresAt = block.timestamp + 60 * 60 * 24;
+    for (uint i = 0; i < tokenIds.length; i++) {
+      uint256 tokenId = tokenIds[i];
+      require(_exists(tokenId), "invalid token");
+      _tokenLockExpiresAt[tokenId] = expiresAt;
+    }
+  }
+
+  // determine what time a token expires at
+  function tokenLockExpiresAt(uint256 tokenId) external view returns (uint) {
+    require(_exists(tokenId), "invalid token");
+    return _tokenLockExpiresAt[tokenId];
+  }
 
   // // set the state of a token
   // // msg.sender MUST be approved or owner
@@ -176,11 +234,6 @@ contract BVAL721 is
     ));
   }
 
-  // set a token URI override
-  function setTokenURI(uint256 tokenId, string memory uri) external onlyOwner {
-    require(_exists(tokenId), "invalid token");
-    _tokenURIs[tokenId] = uri;
-  }
 
   // contract metadata URI (opensea)
   function contractURI() external view override returns (string memory) {
@@ -191,11 +244,6 @@ contract BVAL721 is
     ));
   }
 
-  // swap out base URI
-  function setBaseURI(string calldata uri) external onlyOwner {
-    _gatewayURI = uri;
-  }
-
   // ---
   // rarible
   // ---
@@ -204,7 +252,7 @@ contract BVAL721 is
   function getFeeRecipients(uint256 tokenId) override public view returns (address payable[] memory) {
     require(_exists(tokenId), "invalid token");
     address payable[] memory ret = new address payable[](1);
-    ret[0] = payable(owner());
+    ret[0] = payable(_royaltyRecipient);
     return ret;
   }
 
@@ -222,7 +270,7 @@ contract BVAL721 is
 
   function royaltyInfo(uint256 tokenId) override external view returns (address receiver, uint256 amount) {
     require(_exists(tokenId), "invalid token");
-    return (owner(), uint256(FEE_BPS) * 100);
+    return (_royaltyRecipient, uint256(FEE_BPS) * 100);
   }
 
   // ---
@@ -230,7 +278,7 @@ contract BVAL721 is
   // ---
 
   // ERC165
-  function supportsInterface(bytes4 interfaceId) public view virtual override (IERC165, ERC721Enumerable) returns (bool) {
+  function supportsInterface(bytes4 interfaceId) public view virtual override (IERC165, ERC721Enumerable, AccessControl) returns (bool) {
     return interfaceId == type(IERC721Metadata).interfaceId
       // || interfaceId == type(ITokenState).interfaceId
       || interfaceId == type(IERC2981).interfaceId

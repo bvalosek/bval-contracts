@@ -10,7 +10,7 @@ const BASE_URI = 'https://tokens.test.com/';
 const factory = () => BVAL721.new({ description: DESC, data: IMAGE, baseURI: BASE_URI });
 
 // max gas for deployment
-const MAX_DEPLOYMENT_GAS = 2800000;
+const MAX_DEPLOYMENT_GAS = 3000000;
 
 // max amount of gas we want to allow for basic on-chain mutations
 const MAX_MUTATION_GAS = 150000;
@@ -111,27 +111,7 @@ contract('BVAL721', (accounts) => {
       assert.isTrue(await instance.supportsInterface('0xcef6d368'));
     });
   });
-  describe('Ownable access semantics', () => {
-    it('should expose owner defaulting to sender', async () => {
-      const [a1] = accounts;
-      const instance = await factory();
-      const owner = await instance.owner();
-      assert.equal(owner, a1);
-    });
-    it('should allow transfer to another owner', async () => {
-      const [, a2] = accounts;
-      const instance = await factory();
-      await instance.transferOwnership(a2);
-      const owner = await instance.owner();
-      assert.equal(owner, a2);
-    });
-    it('should not allow non-owner to transfer', async () => {
-      const [, a2] = accounts;
-      const instance = await factory();
-      const task = instance.transferOwnership(a2, { from: a2 });
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not the owner');
-    });
-  });
+
   describe('ERC721 Metadata', () => {
     it('should have a name', async () => {
       const instance = await factory();
@@ -177,7 +157,7 @@ contract('BVAL721', (accounts) => {
       const instance = await factory();
       const override = 'https://override';
       const task = instance.setBaseURI(override, { from: a2 });
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not the owner');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
     });
   });
   describe('minting', () => {
@@ -191,7 +171,7 @@ contract('BVAL721', (accounts) => {
       const tokenId = TOKENS[0];
       await instance.startSequence('1', 'name', 'desc', 'image');
       const task = instance.mint(tokenId, 'name', 'desc', 'data', { from: a2 });
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not the owner');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires MINTER_ROLE');
     });
     it('should revert if minting before starting first sequence', async () => {
       const instance = await factory();
@@ -257,7 +237,7 @@ contract('BVAL721', (accounts) => {
       await instance.startSequence('1', 'name', 'desc', 'image');
       await instance.mint(tokenId, 'name', 'description', 'image');
       const task = instance.setTokenURI(tokenId, override, { from: a2 });
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not the owner');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
     });
   });
   describe('burning', () => {
