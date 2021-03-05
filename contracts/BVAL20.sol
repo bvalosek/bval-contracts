@@ -11,7 +11,10 @@ contract BVAL20 is AccessControl, ERC20 {
   string private constant NAME = "@bvalosek Token";
   string private constant SYMBOL = "BVAL";
 
+  // able to mint $BVAL
   bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+  // able to ping deadmans switch
   bytes32 public constant DEADMAN_ROLE = keccak256("DEADMAN_ROLE");
 
   // timestamp after which minting is no longer possible
@@ -29,6 +32,7 @@ contract BVAL20 is AccessControl, ERC20 {
   // ---
 
   function mintTo(address account, uint256 amount) external {
+    require(stillAlive(), "deadmans switch has been tripped");
     require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
     _mint(address(this), amount);
     transfer(account, amount);
@@ -48,7 +52,8 @@ contract BVAL20 is AccessControl, ERC20 {
   // ---
 
   // keep alive
-  function pingDeadmanSwitch() public stillAlive {
+  function pingDeadmanSwitch() public {
+    require(stillAlive(), "deadmans switch has been tripped");
     require(hasRole(DEADMAN_ROLE, _msgSender()), "requires DEADMAN_ROLE");
     _deadmanTimestamp = block.timestamp + ONE_YEAR;
   }
@@ -59,9 +64,8 @@ contract BVAL20 is AccessControl, ERC20 {
   }
 
   // restrict a function call to only allowed when alive
-  modifier stillAlive() {
-    require(_deadmanTimestamp > block.timestamp, "deadman switch has been tripped");
-    _;
+  function stillAlive() public view returns (bool) {
+    return _deadmanTimestamp > block.timestamp;
   }
 
 }

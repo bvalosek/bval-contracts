@@ -43,6 +43,7 @@ contract BVAL721 is
   uint16 private constant COLLECTION_VERSION = 1;
   uint16 private constant FEE_BPS = 1000; // 10%
 
+  // able to mint and manage sequences
   bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
   // base URI of token gateway

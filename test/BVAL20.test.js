@@ -225,7 +225,7 @@ contract('BVAL20', (accounts) => {
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2023-02-28'));
 
       const task = instance.pingDeadmanSwitch();
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'deadman switch has been tripped');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'has been tripped');
     });
   });
   // describe('burning on state change', () => {
