@@ -131,7 +131,6 @@ contract Base721 is
   function burn(uint256 tokenId) public virtual {
     require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
     _burn(tokenId);
-    delete _tokenURIs[tokenId];
   }
 
   // ---
@@ -224,6 +223,20 @@ contract Base721 is
       || interfaceId == type(IOpenSeaContractURI).interfaceId
       || interfaceId == type(IRaribleRoyalties).interfaceId
       || super.supportsInterface(interfaceId);
+  }
+
+  // ---
+  // openzep Hooks
+  // ---
+
+  // open zep hook called on all transfers (including burn/mint)
+  function _beforeTokenTransfer(address from, address to, uint256 tokenId) override internal virtual {
+    // clean up on burn
+    if (to == address(0)) {
+      delete _tokenURIs[tokenId];
+    }
+
+    super._beforeTokenTransfer(from, to, tokenId);
   }
 
 }
