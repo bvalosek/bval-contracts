@@ -1,16 +1,24 @@
 const truffleAssert = require('truffle-assertions');
 
-const BVAL721 = artifacts.require('BVAL721');
-const MockSequenceEngine = artifacts.require('MockSequenceEngine');
+const Base721 = artifacts.require('Base721');
 const DESC = 'description';
 const IMAGE = 'https://image';
 const BASE_URI = 'https://tokens.test.com/';
+const SYMBOL = 'BVAL';
+const NAME = '@bvalosek Collection';
 
 // if no from, defaults to default address for wallet
-const factory = () => BVAL721.new({ description: DESC, data: IMAGE, baseURI: BASE_URI });
+const factory = () => Base721.new({
+  name: NAME,
+  symbol: SYMBOL,
+  description: DESC,
+  data: IMAGE,
+  baseURI: BASE_URI,
+  feeBps: 1000,
+});
 
 // max gas for deployment
-const MAX_DEPLOYMENT_GAS = 3000000;
+const MAX_DEPLOYMENT_GAS = 3100000;
 
 // max amount of gas we want to allow for basic on-chain mutations
 const MAX_MUTATION_GAS = 150000;
@@ -33,7 +41,7 @@ const simpleMint = async (instance, tokenId = TOKENS[0]) => {
   return res;
 }
 
-contract('BVAL721', (accounts) => {
+contract('Base721', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
       const instance = await factory();
