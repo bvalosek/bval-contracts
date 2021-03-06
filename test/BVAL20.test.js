@@ -53,6 +53,15 @@ contract('BVAL20', (accounts) => {
       const task = instance.mintTo(instance.address, 10000); // does revert
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'has been tripped');
     });
+    it('should not allow unless caller has MINTER role', async () => {
+      const [a1, a2] = accounts;
+      const instance = await factory();
+      const task = instance.mintTo(a1, 1000, { from: a2 });
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires MINTER_ROLE');
+      await instance.grantRole(await instance.MINTER_ROLE(), a2);
+      await instance.mintTo(a1, 1000, { from: a2 }); // does not revert
+      assert.equal(await instance.balanceOf(a1), 1000);
+    });
     it('should return isAlive', async () => {
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-02-28'));
       const instance = await factory();
@@ -84,6 +93,24 @@ contract('BVAL20', (accounts) => {
       await instance.mintTo(a1, 1000);
       const task = instance.transferFrom(a1, a3, 1000, { from: a2 });
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'transfer amount exceeds allowance');
+    });
+  });
+  describe('burn', () => {
+    it('should allow burning held tokens', async () => {
+      const [a1] = accounts;
+      const instance = await factory();
+      await instance.mintTo(a1, 1000);
+      assert.equal(await instance.balanceOf(a1), 1000);
+      await instance.burn(1000);
+      assert.equal(await instance.balanceOf(a1), 0);
+      const task = instance.burn(1000);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'burn amount exceeds balance');
+    });
+    it('should not allow burning more than balance', async () => {
+      const [a1] = accounts;
+      const instance = await factory();
+      const task = instance.burn(1000);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'burn amount exceeds balance');
     });
   });
 });
