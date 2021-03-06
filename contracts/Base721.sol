@@ -52,23 +52,17 @@ contract Base721 is
   // address to send royalties to
   address private _royaltyRecipient;
 
-  // individual token state
-  mapping (uint256 => uint256) private _tokenStates;
-
-  // mapping from a token ID to when its state lock expires
-  mapping (uint256 => uint) private _tokenLockExpiresAt;
-
   // token URI override
   mapping (uint256 => string) private _tokenURIs;
 
   // constructor options
   struct ContractOptions {
-    string symbol;
     string name;
     string description;
     string data;
-    string baseURI;
+    string symbol;
     uint16 feeBps;
+    string baseURI;
   }
 
   constructor (ContractOptions memory options) ERC721(options.name, options.symbol) {
@@ -134,11 +128,10 @@ contract Base721 is
 
   // destroy a token
   // msg.sender MUST be approved or owner
-  function burn(uint256 tokenId) external {
+  function burn(uint256 tokenId) public virtual {
     require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
     _burn(tokenId);
     delete _tokenURIs[tokenId];
-    delete _tokenStates[tokenId];
   }
 
   // ---
