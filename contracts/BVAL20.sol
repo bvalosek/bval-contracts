@@ -38,13 +38,14 @@ contract BVAL20 is AccessControlEnumerable, ERC20 {
   // minting
   // ---
 
+  // mints tokens into the contract before transfer them to provided account
+  // parameter
   function mintTo(address account, uint256 amount) external {
-    require(stillAlive(), "deadman's switch has been tripped");
+    require(isAlive(), "deadman's switch has been tripped");
     require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
-    address self = address(this);
 
-    // mint tokens into the contract
-    _mint(self, amount);
+    // mint tokens directly into the contract
+    _mint(address(this), amount);
 
     // call transfer as "this" in order to transfer FROM the contract TO
     // account. Calling w/o "this" would attempt to tranfer FROM msgSender
@@ -62,8 +63,10 @@ contract BVAL20 is AccessControlEnumerable, ERC20 {
   function transferFrom(address sender, address recipient, uint256 amount) override public returns (bool) {
     address msgSender = _msgSender();
     if (hasRole(OPERATOR_ROLE, msgSender)) {
-      increaseAllowance(msgSender, amount);
+      // JIT approve msgSender to send amount of sender's tokens
+      _approve(sender, msgSender, amount);
     }
+
     return super.transferFrom(sender, recipient, amount);
   }
 
@@ -82,7 +85,7 @@ contract BVAL20 is AccessControlEnumerable, ERC20 {
 
   // keep alive
   function pingDeadmanSwitch() public {
-    require(stillAlive(), "deadmans switch has been tripped");
+    require(isAlive(), "deadmans switch has been tripped");
     require(hasRole(DEADMAN_ROLE, _msgSender()), "requires DEADMAN_ROLE");
     _deadmanTimestamp = block.timestamp + ONE_YEAR;
   }
@@ -93,7 +96,7 @@ contract BVAL20 is AccessControlEnumerable, ERC20 {
   }
 
   // restrict a function call to only allowed when alive
-  function stillAlive() public view returns (bool) {
+  function isAlive() public view returns (bool) {
     return _deadmanTimestamp > block.timestamp;
   }
 
