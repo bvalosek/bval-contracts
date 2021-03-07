@@ -30,28 +30,30 @@ $ npm run build
 
 ## Overview
 
-This repo has an ERC-721 and an ERC-20 contract that are designed to work together:
+This repo has an ERC-721 and an ERC-20 contract that are designed to work together (`BVAL721` and `BVAL20`). Some of the general interop and sequence functionality is pulled into a `Base721` contract to keep things from getting to bloated.
 
+Both contracts inherit from OpenZeppelin's `AccessControlEnumerable` contract to enable enumerable RBAC support. The design goal for my contracts was to allow very pervasive control of contract parameters and functionality behind roles that I can eventually renounce or give exclusively to less pervasive proxy smart contracts (or even a DAO).
+
+The idea with this was to enable flexible extension and future functionality as I iterate on this project while still allowing for more iterative delegated trust over time.
 ### ERC-721
 
 #### Implementation Base
 
-Based on a modified version of the latest ERC-721 implementation from OpenZeppelin (to cut gas a bit):
-
-* Removes dynamic length `string` storage
-* Removes metadata extension
-* Removes hook function
+* OpenZeppelin ERC-721 w/ the Enumerable extension implementation
+* Includes `AccessControlEnumerable` for enumerable RBAC support
 
 #### Token ID encoding
 
 The 256 bits of the ERC-721 tokenID are used to encode information about the token. This allows for immutable, intrinsic information about a token to be represented on-chain in an ERC-721 compat way.
 
-* Token number, sequence number, collection version
+* Token number, sequence number
 * Mint date and created date
-* $BVAL emission rate and state change cost
+* $BVAL yield and burn multipliers
 * Edition number / edition total
 * Information about the asset (resolution, type)
 * etc...
+
+Some of this information is checked on chain (see `TokenID.sol`), but most of it is used for the corresponding `tokens.bvalosek.com` gallery site.
 
 #### Sequences
 
@@ -65,10 +67,13 @@ See `Sequenced.sol`
 * Multiple sequences may be started in parallel
 * A sequence may be registered with an "engine", which will be called during token state changes
 
+A sequence is considered "atomic" if it was created with the `mintAtomicSequence` function, which will start a sequence, mint NFTs, and complete a sequence in a single transaction.
+
 ##### Sequence Engines
 
 Sequence engines allow for additional on-chain behaviors and mechanics to be added after the initial contract deploys.
 
+* A sequence engine is registered for a specific sequence, and invoked anytime state is set for a token in that sequence
 * A sequence engine implements a single method that is called during token state change
 * The sequence engine can validate the state change or cause additional side effects
 * The engine may override the value that is actually written to token state
@@ -89,7 +94,7 @@ On-chain events are emitted to announce collection/sequence/token metadata in a 
 * State can be set to any arbitrary value if no sequence engine is specified
 * State changes may be modified or constrained by a sequence engine
 * State is designed to be used to build on and off chain experiences in the future
-* Changing state may require $BVAL
+* Changing state may require $BVAL (as determined by the NFT's burn multiplier)
 * State change cost is an intrinsic property of a token (encoded into its ID)
 
 #### Marketplace Interop
@@ -102,26 +107,10 @@ On-chain events are emitted to announce collection/sequence/token metadata in a 
 
 #### Implementation Base
 
-Based on a modified version of the latest ERC-20 implementation from OpenZeppelin (to cut gas a bit):
-
-* Removes dynamic length `string` storages for symbol/name
-* Removes hook function
-
-#### Collection Registration
-
-* A mapping can be set by the contract owner from a token version to a contract address
-* This mapping can only be set once
-* This is used to resolve the above ERC-721 contract from the collection version extracted from a NFT token ID
-
-#### Claiming $BVAL
-
-* The holder of a BVAL-NFT can call the `claim` method with an array of token IDs
-* NFTs "emit" $BVAL at a rate determined by an emission rate encoded into their token IDs
-* Calling `claim` will mint new $BVAL corresponding to how much has been emitted since the last claim
-* Emission stops if deadman's switch has been tripped (existing accumulated $BVAL can still be claimed)
-* NFTs minted in the first year of the contract start with a bonus of 1 month's worth of accumulated $BVAL
+* OpenZeppelin ERC-20
+* Includes `AccessControlEnumerable` for enumerable RBAC support
 
 #### Deadman Switch
 
-* The `pingDeadmanSwitch` method must be called once a year, or $BVAL emission will stop (claims still still occur for outstanding $BVAL)
+* The `pingDeadmanSwitch` method must be called once a year, or minting any more BVAL is impossible
 * Once the switch is tripped, there's no way to reset it
