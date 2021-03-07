@@ -131,15 +131,16 @@ contract BVAL721 is Base721 {
   function claim(uint256[] memory tokenIds) external returns (uint256) {
     uint256 claimed = 0;
     address msgSender = _msgSender();
+    uint timestamp = block.timestamp;
 
     for (uint i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
       require(ownerOf(tokenId) == msgSender, "only token holder can claim");
+      require(_tokenLockExpiresAt[tokenId] < timestamp, "token is locked");
 
       // compute and add accumulated tokens
-      uint256 toClaim = accumulated(tokenId);
-      claimed += toClaim;
-      _lastClaimTimestamp[tokenId] = block.timestamp;
+      claimed += accumulated(tokenId);
+      _lastClaimTimestamp[tokenId] = timestamp;
     }
 
     require(claimed > 0, "nothing to claim");
@@ -188,12 +189,8 @@ contract BVAL721 is Base721 {
 
   // open zep hook called on all transfers (including burn/mint)
   function _beforeTokenTransfer(address from, address to, uint256 tokenId) override internal virtual {
-    // on all tranfers / burns besides mint
-    if (from != address(0)) {
-      delete _tokenLockExpiresAt[tokenId];
-    }
 
-    // on burn
+    // cleanup on burn
     if (to == address(0)) {
       delete _tokenStates[tokenId];
       delete _lastClaimTimestamp[tokenId];

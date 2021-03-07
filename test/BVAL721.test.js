@@ -169,4 +169,32 @@ contract.only('BVAL721', (accounts) => {
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'transfer amount exceeds balance');
     });
   })
+  describe('token locking', () => {
+    it('should allow token holder to lock', async () => {
+      const { collection} = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.lockTokens([tokenId]);
+      const eat = await collection.tokenLockExpiresAt(tokenId);
+      assert.equal(eat.toNumber(), 1615248000);
+    });
+    it('should revert if non-holder attempts to lock', async () => {
+      const [,a2] = accounts;
+      const { collection} = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      const task = collection.lockTokens([tokenId], { from: a2 });
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
+    });
+    it('should revert on claim if token locked', async () => {
+      const { collection} = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await collection.lockTokens([tokenId]);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      const task = collection.claim([tokenId]);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'token is locked');
+    });
+  });
 });
