@@ -24,6 +24,9 @@ contract BVAL721 is Base721 {
   // base BVAL/day accumulation rate before token yield multiplier is applied
   uint256 private _baseDailyRate = 10 ** 18;
 
+  // the base burn amount when submitting a state change for a token with a burn amount
+  uint256 private _baseBurnAmount = 10 ** 18;
+
   // individual token state
   mapping (uint256 => uint256) private _tokenStates;
 
@@ -42,6 +45,32 @@ contract BVAL721 is Base721 {
     baseURI: baseURI
   })) {
     _bvalTokenContract = bvalTokenContract;
+  }
+
+  // ---
+  // Admin
+  // ---
+
+  // set the base daily rate accumulation rate
+  function setBaseDailyRate(uint256 rate) external {
+    require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "requires DEFAULT_ADMIN_ROLE");
+    _baseDailyRate = rate;
+  }
+
+  // set the base burn amount
+  function setBaseBurnAmount(uint256 amount) external {
+    require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "requires DEFAULT_ADMIN_ROLE");
+    _baseBurnAmount = amount;
+  }
+
+  // amount of BVAL consumed on state change when NFT burn multiplier = 1
+  function baseBurnAmount() external view returns (uint256) {
+    return _baseBurnAmount;
+  }
+
+  // amount of BVAl generated daily when NFT yield multiplier = 1
+  function baseDailyRate() external view returns (uint256) {
+    return _baseDailyRate;
   }
 
   // ---
@@ -77,6 +106,9 @@ contract BVAL721 is Base721 {
 
   // determine the accumulated BVAL for a given token
   function accumulated(uint256 tokenId) public view returns (uint256) {
+    require(tokenId.isTokenValid(), "malformed token");
+    require(tokenId.tokenVersion() > 0, "invalid token version");
+
     uint yieldStart = tokenId.tokenMintTimestamp();
     uint yieldStop = block.timestamp;
 
@@ -102,11 +134,9 @@ contract BVAL721 is Base721 {
 
     for (uint i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-      require(tokenId.isTokenValid(), "malformed token");
-      require(tokenId.tokenVersion() > 0, "invalid token version");
       require(ownerOf(tokenId) == msgSender, "only token holder can claim");
 
-      // compute and add accumulated coins
+      // compute and add accumulated tokens
       uint256 toClaim = accumulated(tokenId);
       claimed += toClaim;
       _lastClaimTimestamp[tokenId] = block.timestamp;

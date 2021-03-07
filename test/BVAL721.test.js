@@ -17,7 +17,7 @@ const factory = async (startDate = '2021-02-07') => {
 }
 
 // max gas for deployment
-const MAX_DEPLOYMENT_GAS = 3500000;
+const MAX_DEPLOYMENT_GAS = 4000000;
 
 // max amount of gas we want to allow for basic on-chain mutations
 const MAX_MUTATION_GAS = 150000;
@@ -57,6 +57,30 @@ contract('BVAL721', (accounts) => {
       let { gasUsed } = await web3.eth.getTransactionReceipt(collection.transactionHash);
       assert.isBelow(gasUsed, MAX_DEPLOYMENT_GAS);
       console.log('deploy', gasUsed);
+    });
+  });
+  describe('admin functionality', () => {
+    it('should allow setting daily base rate', async () => {
+      const { collection } = await factory();
+      await collection.setBaseDailyRate(12345);
+      assert.equal(await collection.baseDailyRate(), 12345);
+    });
+    it('should not allow non-admin to set rate', async () => {
+      const [, a2] = accounts;
+      const { collection } = await factory();
+      const task = collection.setBaseDailyRate(12345, { from: a2 });
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
+    });
+    it('should allow setting base burn amount', async () => {
+      const { collection } = await factory();
+      await collection.setBaseBurnAmount(56789);
+      assert.equal(await collection.baseBurnAmount(), 56789);
+    });
+    it('should not allow non-admin to set rate', async () => {
+      const [, a2] = accounts;
+      const { collection } = await factory();
+      const task = collection.setBaseBurnAmount(56789, { from: a2 });
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
     });
   });
 });
