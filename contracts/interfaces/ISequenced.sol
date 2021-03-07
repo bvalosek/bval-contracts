@@ -31,3 +31,18 @@ interface ISequenced {
     // complete a started sequence
     function completeSequence(uint16 number) external;
 }
+
+// interface for a contract that can serve as a sequence engine
+interface ISequenceEngine {
+
+  // will be called anytime state is set for a token. Must return the next state
+  // value. Only needed if state changes need to be validated outside of the
+  // primary contract or there are on-chain side-effects from state changes
+  function processStateChange(
+    uint256 tokenId,
+    address owner,
+    uint256 input,
+    uint256 state
+  ) external returns (uint256);
+
+}

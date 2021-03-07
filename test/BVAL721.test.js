@@ -183,7 +183,7 @@ contract.only('BVAL721', (accounts) => {
       // 1 day later
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
       const task = collection.claim([tokenId]);
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'only token holder can claim');
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
     });
     it('should revert if not enough BVAL held by contract', async () => {
       const { collection } = await factory();
@@ -218,10 +218,33 @@ contract.only('BVAL721', (accounts) => {
       const { collection} = await factory();
       const [tokenId] = TOKENS;
       await simpleMint(collection, tokenId);
-      await collection.lockTokens([tokenId]);
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.lockTokens([tokenId]);
       const task = collection.claim([tokenId]);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'token is locked');
+    });
+    it('should expire the lock after 24 hours', async () => {
+      const { collection, token } = await factory();
+      const [tokenId] = TOKENS;
+      await token.mintTo(collection.address, BVAL(1000));
+      await simpleMint(collection, tokenId);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.lockTokens([tokenId]);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-09'));
+      await collection.claim([tokenId]); // does not revert
+    });
+    it('should not expire lock on transfers', async () => {
+      const [a1, a2] = accounts;
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.lockTokens([tokenId]);
+      await collection.transferFrom(a1, a2, tokenId);
+
+      const eat = await collection.tokenLockExpiresAt(tokenId);
+      assert.equal(eat.toNumber(), 1615248000);
     });
   });
 });
