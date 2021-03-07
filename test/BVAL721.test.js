@@ -17,7 +17,6 @@ const factory = async (startDate = '2021-03-07') => {
   return { token, collection };
 }
 
-// BVAL = amount * 10**18
 const BVAL = (amount) => toBN(`${amount}`).mul(toBN('1000000000000000000'));
 const LAVB = (amount) => toBN(`${amount}`).div(toBN('1000000000000000000')).toNumber();
 
@@ -115,10 +114,59 @@ contract.only('BVAL721', (accounts) => {
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'invalid token');
     });
   });
-  // describe('claiming BVAL', () => {
-  //   it('should claim accumulated bval', async () => {
-  //     const { collection, token } = await factory();
-  //     await token.mintTo(collection.address, '')
-  //   });
-  // })
+  describe('claiming BVAL', () => {
+    it('should claim accumulated bval', async () => {
+      const [a1, a2] = accounts;
+      const { collection, token } = await factory();
+      await token.mintTo(collection.address, BVAL(1000));
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await collection.transferFrom(a1, a2, tokenId);
+
+      // 1 day later
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.claim([tokenId], { from: a2 });
+      assert.equal(LAVB(await token.balanceOf(collection.address)),990);
+      assert.equal(LAVB(await token.balanceOf(a1)), 0);
+      assert.equal(LAVB(await token.balanceOf(a2)), 10);
+
+      // 2 days later
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-09'));
+      await collection.claim([tokenId], { from: a2 });
+      assert.equal(LAVB(await token.balanceOf(collection.address)),980);
+      assert.equal(LAVB(await token.balanceOf(a1)), 0);
+      assert.equal(LAVB(await token.balanceOf(a2)), 20);
+    });
+    it('should revert if nothing to claim', async () => {
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2020-03-07'));
+      const task = collection.claim([tokenId]);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'nothing to claim');
+    });
+    it('should revert if non-token holder tries to claim', async () => {
+      const [a1, a2] = accounts;
+      const { collection, token } = await factory();
+      await token.mintTo(collection.address, BVAL(1000));
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await collection.transferFrom(a1, a2, tokenId);
+
+      // 1 day later
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      const task = collection.claim([tokenId]);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'only token holder can claim');
+    });
+    it('should revert if not enough BVAL held by contract', async () => {
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+
+      // 1 day later
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      const task = collection.claim([tokenId]);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'transfer amount exceeds balance');
+    });
+  })
 });
