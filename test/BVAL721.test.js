@@ -35,6 +35,8 @@ const TOKENS = [
   '542422083536764891605055617762608442122700715211722983994819756335223078913',
   // 1 - 2 minted 2021-03-07
   '770345354893176470121300995358444930664446137908677829592506956306265997313',
+  // 1 - 3 minted 2021-03-07, 10x burn multiplier
+  '735008413597608783530592855056627740884370426863134393669836544236073320449',
 ];
 
 let snapshotId;
@@ -245,6 +247,90 @@ contract.only('BVAL721', (accounts) => {
 
       const eat = await collection.tokenLockExpiresAt(tokenId);
       assert.equal(eat.toNumber(), 1615248000);
+    });
+  });
+  describe.only('token state', () => {
+    it('should allow token holder to set state', async () => {
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      assert.equal(await collection.getTokenState(tokenId), 0);
+      await collection.setTokenState([{ tokenId, input: 12345 }]);
+      assert.equal(await collection.getTokenState(tokenId), 12345);
+    });
+    it('should revert if non-owner attempts to set state', async () => {
+      const [, a2] = accounts;
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      assert.equal(await collection.getTokenState(tokenId), 0);
+      const task = collection.setTokenState([{ tokenId, input: 12345 }], { from: a2 });
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'not token owner');
+    });
+    it('should allow 3P to set token state if granted MUTATOR_ROLE', async () => {
+      const [, a2] = accounts;
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      assert.equal(await collection.getTokenState(tokenId), 0);
+      await collection.grantRole(await collection.MUTATOR_ROLE(), a2);
+      await collection.setTokenState([{ tokenId, input: 12345 }], { from: a2 });
+      assert.equal(await collection.getTokenState(tokenId), 12345);
+    });
+    it('should emit a StateChange event on state change', async () => {
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      assert.equal(await collection.getTokenState(tokenId), 0);
+      const res = await collection.setTokenState([{ tokenId, input: 12345 }]);
+      truffleAssert.eventEmitted(res, 'TokenState', (event) => {
+        return (
+          event.tokenId.toString() === tokenId &&
+          event.input.toNumber() === 12345 &&
+          event.state.toNumber() === 12345
+        );
+      });
+    });
+    it('should allow for setting multiple token states at once', async () => {
+      const { collection } = await factory();
+      const [t1, t2] = TOKENS;
+      await collection.startSequence('1', 'name', 'desc', 'data');
+      await collection.mint(t1, 'name', 'desc', 'data');
+      await collection.mint(t2, 'name', 'desc', 'data');
+      await collection.setTokenState([
+        { tokenId: t1, input: 1 },
+        { tokenId: t2, input: 2 },
+      ]);
+      assert.equal(await collection.getTokenState(t1), 1);
+      assert.equal(await collection.getTokenState(t2), 2);
+    });
+    it('should consume BVAL based on burn multiplier to refill the claim pool', async () => {
+      const [a1] = accounts;
+      const { collection, token } = await factory();
+      await token.grantRole(await token.OPERATOR_ROLE(), collection.address);
+      await token.mintTo(collection.address, BVAL(1000));
+      const tokenId = TOKENS[2];
+      await simpleMint(collection, tokenId);
+
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.claim([tokenId]);
+      assert.equal(LAVB(await token.balanceOf(a1)), 10);
+      assert.equal(LAVB(await token.balanceOf(collection.address)), 990);
+
+      await collection.setTokenState([{ tokenId, input: 12345 }]);
+      assert.equal(LAVB(await token.balanceOf(a1)), 0);
+      assert.equal(LAVB(await token.balanceOf(collection.address)), 1000);
+    });
+    it('should revert if sender does not have enough BVAL', async () => {
+      const [a1] = accounts;
+      const { collection, token } = await factory();
+      await token.grantRole(await token.OPERATOR_ROLE(), collection.address);
+      await token.mintTo(collection.address, BVAL(1000));
+      const tokenId = TOKENS[2];
+      await simpleMint(collection, tokenId);
+
+      const task = collection.setTokenState([{ tokenId, input: 12345 }]);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'transfer amount exceeds balance');
     });
   });
 });
