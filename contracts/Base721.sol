@@ -95,9 +95,7 @@ contract Base721 is
   // ERC-721 basics
   // ---
 
-
   // destroy a token
-  // msg.sender MUST be approved or owner
   function burn(uint256 tokenId) public virtual {
     require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
     _burn(tokenId);
@@ -175,8 +173,7 @@ contract Base721 is
 
   // ERC165
   function supportsInterface(bytes4 interfaceId) public view virtual override (IERC165, ERC721Enumerable, AccessControlEnumerable) returns (bool) {
-    return interfaceId == type(IERC721Metadata).interfaceId
-      || interfaceId == type(IERC2981).interfaceId
+    return interfaceId == type(IERC2981).interfaceId
       || interfaceId == type(IOpenSeaContractURI).interfaceId
       || interfaceId == type(IRaribleRoyalties).interfaceId
       || super.supportsInterface(interfaceId);

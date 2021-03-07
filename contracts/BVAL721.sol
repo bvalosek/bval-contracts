@@ -118,7 +118,7 @@ contract BVAL721 is Sequenced721, ITokenState {
       uint256 state = _tokenStates[tokenId];
       uint256 next = input;
       address owner = ownerOf(tokenId);
-      require(isMutator || owner == msgSender, "not token owner");
+      require(isMutator || _isApprovedOrOwner(msgSender, tokenId), "not token owner");
       require(_tokenLockExpiresAt[tokenId] <= timestamp, "token is locked");
 
       // if there is a registered sequence engine, process the state change
@@ -180,7 +180,7 @@ contract BVAL721 is Sequenced721, ITokenState {
 
     for (uint i = 0; i < tokenIds.length; i++) {
       uint256 tokenId = tokenIds[i];
-      require(ownerOf(tokenId) == msgSender, "not token owner");
+      require(_isApprovedOrOwner(msgSender, tokenId), "not token owner");
       require(_tokenLockExpiresAt[tokenId] <= timestamp, "token is locked");
 
       // compute and add accumulated tokens

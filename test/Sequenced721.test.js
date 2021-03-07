@@ -109,6 +109,10 @@ contract('Sequenced721', (accounts) => {
       const instance = await factory();
       assert.isTrue(await instance.supportsInterface('0x5b5e139f'));
     });
+    it('should implement ERC-721Enumerable', async () => {
+      const instance = await factory();
+      assert.isTrue(await instance.supportsInterface('0x780e9d63'));
+    });
     it('should implement Rarible HasSecondarySaleFees', async () => {
       const instance = await factory();
       assert.isTrue(await instance.supportsInterface('0xb7799584'));
