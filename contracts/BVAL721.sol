@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import "./@openzeppelin/IERC20.sol";
 
-import "./Base721.sol";
+import "./Sequenced721.sol";
 import "./TokenID.sol";
 import "./interfaces/ITokenState.sol";
 
-contract BVAL721 is Base721, ITokenState {
+contract BVAL721 is Sequenced721, ITokenState {
   using TokenID for uint256;
 
   // grants ability to set state for all tokens
@@ -46,7 +46,7 @@ contract BVAL721 is Base721, ITokenState {
   // mapping from a sequence number to registered sequence engine
   mapping (uint16 => ISequenceEngine) private _engines;
 
-  constructor (string memory baseURI, IERC20 bvalTokenContract) Base721(ContractOptions({
+  constructor (string memory baseURI, IERC20 bvalTokenContract) Sequenced721(ContractOptions({
     name: NAME,
     description: DESCRIPTION,
     data: DATA,

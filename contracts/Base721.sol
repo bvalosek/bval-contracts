@@ -10,35 +10,25 @@ import "./interfaces/IRaribleRoyalties.sol";
 import "./interfaces/IERC2981.sol";
 import "./interfaces/ITokenMetadata.sol";
 
-import "./Sequenced.sol";
-import "./TokenID.sol";
-
 // A general enumerable/metadata-enabled 721 contract with several extra
 // features added:
 // - emitting token metadata via event logs
-// - "sequences"
 // - royality support (rarible, EIP2981)
-// - RBAC for minting
+// - RBAC via AccessControlEnumerable
+// - tokenURI computed by tokenID and overrideable per-token
 contract Base721 is
   // openzep bases
-  AccessControlEnumerable,
-  ERC721Enumerable,
-
-  // my additional bases
-  Sequenced,
+  AccessControlEnumerable, ERC721Enumerable,
 
   // my interfaces
   ITokenMetadata,
 
   // marketplace interfaces
-  IRaribleRoyalties,
-  IOpenSeaContractURI,
-  IERC2981
+  IRaribleRoyalties, IOpenSeaContractURI, IERC2981
 
   {
 
   using Strings for uint256;
-  using TokenID for uint256;
 
   // royality fee BPS (1/100ths of a percent, eg 1000 = 10%)
   uint16 private immutable _feeBps;
@@ -105,52 +95,12 @@ contract Base721 is
   // ERC-721 basics
   // ---
 
-  // mint a new token for the contract owner and emit metadata as an event
-  function mint(
-    uint256 tokenId,
-    string memory name_,
-    string memory description_,
-    string memory data_) external {
-      address msgSender = _msgSender();
-      require(hasRole(MINTER_ROLE, msgSender), "requires MINTER_ROLE");
-      require(tokenId.isTokenValid() == true, "malformed token");
-      require(tokenId.tokenVersion() > 0, "invalid token version");
-      require(getSequenceState(tokenId.tokenSequenceNumber()) == SequenceState.STARTED, "sequence is not active");
-
-      _mint(msgSender, tokenId);
-      emit TokenMetadata(tokenId, name_, description_, data_);
-
-      // rarible-style royalty info
-      address[] memory recipients = new address[](1);
-      recipients[0] = _royaltyRecipient;
-      emit SecondarySaleFees(tokenId, recipients, getFeeBps(tokenId));
-  }
 
   // destroy a token
   // msg.sender MUST be approved or owner
   function burn(uint256 tokenId) public virtual {
     require(_isApprovedOrOwner(_msgSender(), tokenId), "not token owner");
     _burn(tokenId);
-  }
-
-  // ---
-  // Sequences
-  // ---
-
-  // start sequence
-  function startSequence(
-    uint16 number,
-    string memory name_,
-    string memory description_,
-    string memory data_) override external {
-      require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
-      _startSequence(number, name_, description_, data_);
-  }
-
-  // complete the sequence
-  function completeSequence(uint16 number) override external {
-    require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
-    _completeSequence(number);
   }
 
   // ---
@@ -201,6 +151,13 @@ contract Base721 is
     uint256[] memory ret = new uint[](1);
     ret[0] = uint(_feeBps);
     return ret;
+  }
+
+  // should be called on mint
+  function _emitSecondarySaleInfo(uint256 tokenId) internal {
+    address[] memory recipients = new address[](1);
+    recipients[0] = _royaltyRecipient;
+    emit SecondarySaleFees(tokenId, recipients, getFeeBps(tokenId));
   }
 
   // ---

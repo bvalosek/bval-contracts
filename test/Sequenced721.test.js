@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-const Base721 = artifacts.require('Base721');
+const Sequenced721 = artifacts.require('Sequenced721');
 const DESC = 'description';
 const IMAGE = 'https://image';
 const BASE_URI = 'https://tokens.test.com/';
@@ -8,7 +8,7 @@ const SYMBOL = 'BVAL';
 const NAME = '@bvalosek Collection';
 
 // if no from, defaults to default address for wallet
-const factory = () => Base721.new({
+const factory = () => Sequenced721.new({
   name: NAME,
   symbol: SYMBOL,
   description: DESC,
@@ -41,7 +41,7 @@ const simpleMint = async (instance, tokenId = TOKENS[0]) => {
   return res;
 }
 
-contract('Base721', (accounts) => {
+contract('Sequenced721', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
       const instance = await factory();
