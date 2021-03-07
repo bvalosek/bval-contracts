@@ -33,8 +33,8 @@ const MAX_ANNOUNCE_GAS = 60000;
 const TOKENS = [
   // 1 - 1 minted 2021-03-07
   '542422083536764891605055617762608442122700715211722983994819756335223078913',
-  // 2 - 10 minted 2021-03-07
-  '724407358168885144702775055006144136272562230227056159221917676176268132353',
+  // 1 - 2 minted 2021-03-07
+  '770345354893176470121300995358444930664446137908677829592506956306265997313',
 ];
 
 let snapshotId;
@@ -130,12 +130,39 @@ contract.only('BVAL721', (accounts) => {
       assert.equal(LAVB(await token.balanceOf(a1)), 0);
       assert.equal(LAVB(await token.balanceOf(a2)), 10);
 
-      // 2 days later
+      // 2 days later -- asserting we only claim the newly accumulated tokens
       await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-09'));
       await collection.claim([tokenId], { from: a2 });
       assert.equal(LAVB(await token.balanceOf(collection.address)),980);
       assert.equal(LAVB(await token.balanceOf(a1)), 0);
       assert.equal(LAVB(await token.balanceOf(a2)), 20);
+    });
+    it('should not allow double claimining if tokenId is repeated', async () => {
+      const [a1] = accounts;
+      const { collection, token } = await factory();
+      await token.mintTo(collection.address, BVAL(1000));
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.claim([tokenId, tokenId, tokenId, tokenId, tokenId]);
+      assert.equal(LAVB(await token.balanceOf(collection.address)), 990);
+      assert.equal(LAVB(await token.balanceOf(a1)), 10);
+    });
+    it('should allow claiming multiple tokens at once', async () => {
+      const [a1] = accounts;
+      const { collection, token } = await factory();
+      await token.mintTo(collection.address, BVAL(1000));
+      const [t1, t2] = TOKENS;
+      await collection.startSequence('1', 'name', 'desc', 'data');
+      await collection.mint(t1, 'name', 'desc', 'data');
+      await collection.mint(t2, 'name', 'desc', 'data');
+
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-08'));
+      await collection.claim([t1, t2]);
+
+      // should have claimed 2x
+      assert.equal(LAVB(await token.balanceOf(collection.address)), 980);
+      assert.equal(LAVB(await token.balanceOf(a1)), 20);
     });
     it('should revert if nothing to claim', async () => {
       const { collection } = await factory();
