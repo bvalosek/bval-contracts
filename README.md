@@ -30,11 +30,12 @@ $ npm run build
 
 ## Overview
 
-This repo has an ERC-721 and an ERC-20 contract that are designed to work together (`BVAL721` and `BVAL20`). Some of the general interop and sequence functionality is pulled into a `Base721` contract to keep things from getting to bloated.
+This repo has an ERC-721 and an ERC-20 contract that are designed to work together (`BVAL721` and `BVAL20`). Some of the market interop and basic 721 improvements are pulled into a generalized `Base721` contract, and the sequencing and minting functionality is implemented in `Sequenced721`. Inheritance is so un-ergonomic but when in rome...
 
-Both contracts inherit from OpenZeppelin's `AccessControlEnumerable` contract to enable enumerable RBAC support. The design goal for my contracts was to allow very pervasive control of contract parameters and functionality behind roles that I can eventually renounce or give exclusively to less pervasive proxy smart contracts (or even a DAO).
+Both `BVAL*` contracts inherit from OpenZeppelin's `AccessControlEnumerable` contract to enable enumerable RBAC support. The design goal for my contracts was to allow very pervasive control of contract parameters and functionality behind roles that I can eventually renounce or give exclusively to less pervasive proxy smart contracts (or even a DAO).
 
 The idea with this was to enable flexible extension and future functionality as I iterate on this project while still allowing for more iterative delegated trust over time.
+
 ### ERC-721
 
 #### Implementation Base

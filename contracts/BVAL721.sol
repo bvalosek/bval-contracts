@@ -43,9 +43,6 @@ contract BVAL721 is Sequenced721, ITokenState {
   // mapping from a token ID to the last claim timestamp
   mapping (uint256 => uint) private _lastClaimTimestamp;
 
-  // mapping from a sequence number to registered sequence engine
-  mapping (uint16 => ISequenceEngine) private _engines;
-
   constructor (string memory baseURI, IERC20 bvalTokenContract) Sequenced721(ContractOptions({
     name: NAME,
     description: DESCRIPTION,
@@ -73,13 +70,6 @@ contract BVAL721 is Sequenced721, ITokenState {
     _baseBurnAmount = amount;
   }
 
-  // set an engine for a given sequence
-  function registerEngine(uint16 sequenceNumber, ISequenceEngine engine) external {
-    require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "requires DEFAULT_ADMIN_ROLE");
-    require(_engines[sequenceNumber] == ISequenceEngine(address(0)), "engine already registered");
-    _engines[sequenceNumber] = engine;
-  }
-
   // amount of BVAL consumed on state change when NFT burn multiplier = 1
   function baseBurnAmount() external view returns (uint256) {
     return _baseBurnAmount;
@@ -88,11 +78,6 @@ contract BVAL721 is Sequenced721, ITokenState {
   // amount of BVAl generated daily when NFT yield multiplier = 1
   function baseDailyRate() external view returns (uint256) {
     return _baseDailyRate;
-  }
-
-  // get the sequence engine contract for a sequence
-  function getEngine(uint16 sequenceNumber) external view returns (ISequenceEngine) {
-    return _engines[sequenceNumber];
   }
 
   // ---
@@ -138,7 +123,7 @@ contract BVAL721 is Sequenced721, ITokenState {
 
       // if there is a registered sequence engine, process the state change
       // there and use the return value as the next stage
-      ISequenceEngine engine = _engines[tokenId.tokenSequenceNumber()];
+      ISequenceEngine engine = getEngine(tokenId.tokenSequenceNumber());
       if (engine != ISequenceEngine(address(0))) {
         next = engine.processStateChange(tokenId, owner, input, state);
       }

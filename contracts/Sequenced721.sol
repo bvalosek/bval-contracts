@@ -10,6 +10,9 @@ import "./TokenID.sol";
 contract Sequenced721 is Base721, Sequenced {
   using TokenID for uint256;
 
+  // mapping from a sequence number to registered sequence engine
+  mapping (uint16 => ISequenceEngine) private _engines;
+
   constructor (ContractOptions memory options) Base721(options) { }
 
   // ---
@@ -37,14 +40,24 @@ contract Sequenced721 is Base721, Sequenced {
   // Sequences
   // ---
 
+  // get the sequence engine contract for a sequence
+  function getEngine(uint16 sequenceNumber) override public view returns (ISequenceEngine) {
+    return _engines[sequenceNumber];
+  }
+
   // start sequence
   function startSequence(
     uint16 number,
     string memory name_,
     string memory description_,
-    string memory data_) override external {
+    string memory data_,
+    ISequenceEngine engine
+    ) override external {
       require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
       _startSequence(number, name_, description_, data_);
+      if (engine != ISequenceEngine(address(0))) {
+        _engines[number] = engine;
+      }
   }
 
   // complete the sequence

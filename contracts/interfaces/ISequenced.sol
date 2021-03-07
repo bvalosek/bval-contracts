@@ -26,10 +26,15 @@ interface ISequenced {
       uint16 number,
       string memory name,
       string memory description,
-      string memory data) external;
+      string memory data,
+      ISequenceEngine engine
+      ) external;
 
     // complete a started sequence
     function completeSequence(uint16 number) external;
+
+    // resolve a sequence engine
+    function getEngine(uint16 number) external view returns (ISequenceEngine);
 }
 
 // interface for a contract that can serve as a sequence engine

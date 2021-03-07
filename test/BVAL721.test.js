@@ -21,6 +21,8 @@ const factory = async (startDate = '2021-03-07') => {
 const BVAL = (amount) => toBN(`${amount}`).mul(toBN('1000000000000000000'));
 const LAVB = (amount) => toBN(`${amount}`).div(toBN('1000000000000000000')).toNumber();
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
 // max gas for deployment
 const MAX_DEPLOYMENT_GAS = 4000000;
 
@@ -52,7 +54,7 @@ afterEach(async () => {
 
 // start a sequence and mint
 const simpleMint = async (instance, tokenId = TOKENS[0]) => {
-  await instance.startSequence('1', 'name', 'desc', 'data');
+  await instance.startSequence('1', 'name', 'desc', 'data', ZERO_ADDRESS);
   const res = await instance.mint(tokenId, 'name', 'desc', 'data');
   return res;
 }
@@ -156,7 +158,7 @@ contract('BVAL721', (accounts) => {
       const { collection, token } = await factory();
       await token.mintTo(collection.address, BVAL(1000));
       const [t1, t2] = TOKENS;
-      await collection.startSequence('1', 'name', 'desc', 'data');
+      await collection.startSequence('1', 'name', 'desc', 'data', ZERO_ADDRESS);
       await collection.mint(t1, 'name', 'desc', 'data');
       await collection.mint(t2, 'name', 'desc', 'data');
 
@@ -295,7 +297,7 @@ contract('BVAL721', (accounts) => {
     it('should allow for setting multiple token states at once', async () => {
       const { collection } = await factory();
       const [t1, t2] = TOKENS;
-      await collection.startSequence('1', 'name', 'desc', 'data');
+      await collection.startSequence('1', 'name', 'desc', 'data', ZERO_ADDRESS);
       await collection.mint(t1, 'name', 'desc', 'data');
       await collection.mint(t2, 'name', 'desc', 'data');
       await collection.setTokenState([
@@ -338,22 +340,15 @@ contract('BVAL721', (accounts) => {
     it('should allow setting of a sequence engine', async () => {
       const { collection } = await factory();
       const engine = await MockSequenceEngine.new();
-      await collection.registerEngine(1, engine.address);
+      await collection.startSequence(1, 'name', 'desc', 'data', engine.address);
       assert.equal(await collection.getEngine(1), engine.address);
-    });
-    it('should revert if trying to set engine w/o admin role', async () => {
-      const [, a2] = accounts;
-      const { collection } = await factory();
-      const engine = await MockSequenceEngine.new();
-      const task = collection.registerEngine(1, engine.address, { from: a2 });
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
     });
     it('should use registered sequence engine', async () => {
       const { collection } = await factory();
       const [tokenId] = TOKENS;
-      await simpleMint(collection, tokenId);
       const engine = await MockSequenceEngine.new();
-      await collection.registerEngine(1, engine.address);
+      await collection.startSequence(1, 'name', 'desc', 'data', engine.address);
+      await collection.mint(tokenId, 'name', 'desc', 'data');
       assert.equal(await collection.getTokenState(tokenId), 0);
       await collection.setTokenState([{ tokenId, input: 1 }]);
       assert.equal(await collection.getTokenState(tokenId), 1);
