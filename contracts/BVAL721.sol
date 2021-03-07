@@ -106,7 +106,7 @@ contract BVAL721 is Base721 {
 
   // determine the accumulated BVAL for a given token
   function accumulated(uint256 tokenId) public view returns (uint256) {
-    require(tokenId.isTokenValid(), "malformed token");
+    require(_exists(tokenId), "invalid token");
     require(tokenId.tokenVersion() > 0, "invalid token version");
 
     uint yieldStart = tokenId.tokenMintTimestamp();

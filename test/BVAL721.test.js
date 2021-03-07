@@ -1,6 +1,8 @@
 const truffleAssert = require('truffle-assertions');
 const timeMachine = require('ganache-time-traveler');
 
+const { toBN } = web3.utils;
+
 const BVAL721 = artifacts.require('BVAL721');
 const BVAL20 = artifacts.require('BVAL20');
 
@@ -8,13 +10,16 @@ const BASE_URI = 'https://tokens.test.com/';
 
 const createTimestamp = (date) => Math.round(new Date(date).getTime() / 1000);
 
-
-const factory = async (startDate = '2021-02-07') => {
+const factory = async (startDate = '2021-03-07') => {
   await timeMachine.advanceBlockAndSetTime(createTimestamp(startDate));
   const token = await BVAL20.new();
   const collection = await BVAL721.new(BASE_URI, token.address);
   return { token, collection };
 }
+
+// BVAL = amount * 10**18
+const BVAL = (amount) => toBN(`${amount}`).mul(toBN('1000000000000000000'));
+const LAVB = (amount) => toBN(`${amount}`).div(toBN('1000000000000000000')).toNumber();
 
 // max gas for deployment
 const MAX_DEPLOYMENT_GAS = 4000000;
@@ -27,9 +32,9 @@ const MAX_ANNOUNCE_GAS = 60000;
 
 // decimal tokens , generated with token ID encoder util
 const TOKENS = [
-  // 1 - 1
+  // 1 - 1 minted 2021-03-07
   '542422083536764891605055617762608442122700715211722983994819756335223078913',
-  // 2 - 10
+  // 2 - 10 minted 2021-03-07
   '724407358168885144702775055006144136272562230227056159221917676176268132353',
 ];
 
@@ -50,7 +55,7 @@ const simpleMint = async (instance, tokenId = TOKENS[0]) => {
   return res;
 }
 
-contract('BVAL721', (accounts) => {
+contract.only('BVAL721', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
       const { collection } = await factory();
@@ -83,4 +88,37 @@ contract('BVAL721', (accounts) => {
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
     });
   });
+  describe('accumulation calculation', () => {
+    it('should accumulate based on date', async () => {
+      const { collection } = await factory();
+      await collection.setBaseDailyRate(BVAL(1));
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-07'));
+      assert.equal(LAVB(await collection.accumulated(tokenId)), 0); // none to start
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2022-03-07'));
+      assert.equal(LAVB(await collection.accumulated(tokenId)), 3650); // 10 per day for a year
+    });
+    it('should accumulate 0 if mint date in the future', async () => {
+      const { collection } = await factory();
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2020-03-07')); // before mint date
+
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      assert.equal(await collection.accumulated(tokenId), 0);
+    });
+    it('should revert on a non-existent token', async () => {
+      const { collection } = await factory();
+      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-03-07'));
+      const [tokenId] = TOKENS;
+      const task = collection.accumulated(tokenId);
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'invalid token');
+    });
+  });
+  // describe('claiming BVAL', () => {
+  //   it('should claim accumulated bval', async () => {
+  //     const { collection, token } = await factory();
+  //     await token.mintTo(collection.address, '')
+  //   });
+  // })
 });
