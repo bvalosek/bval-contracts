@@ -5,6 +5,7 @@ const { toBN } = web3.utils;
 
 const BVAL721 = artifacts.require('BVAL721');
 const BVAL20 = artifacts.require('BVAL20');
+const MockSequenceEngine = artifacts.require('MockSequenceEngine');
 
 const BASE_URI = 'https://tokens.test.com/';
 
@@ -56,7 +57,7 @@ const simpleMint = async (instance, tokenId = TOKENS[0]) => {
   return res;
 }
 
-contract.only('BVAL721', (accounts) => {
+contract('BVAL721', (accounts) => {
   describe('gas constraints', () => {
     it('should deploy with less than target deployment gas', async () => {
       const { collection } = await factory();
@@ -249,7 +250,7 @@ contract.only('BVAL721', (accounts) => {
       assert.equal(eat.toNumber(), 1615248000);
     });
   });
-  describe.only('token state', () => {
+  describe('token state', () => {
     it('should allow token holder to set state', async () => {
       const { collection } = await factory();
       const [tokenId] = TOKENS;
@@ -331,6 +332,35 @@ contract.only('BVAL721', (accounts) => {
 
       const task = collection.setTokenState([{ tokenId, input: 12345 }]);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'transfer amount exceeds balance');
+    });
+  });
+  describe('sequence engine functionality', () => {
+    it('should allow setting of a sequence engine', async () => {
+      const { collection } = await factory();
+      const engine = await MockSequenceEngine.new();
+      await collection.registerEngine(1, engine.address);
+      assert.equal(await collection.getEngine(1), engine.address);
+    });
+    it('should revert if trying to set engine w/o admin role', async () => {
+      const [, a2] = accounts;
+      const { collection } = await factory();
+      const engine = await MockSequenceEngine.new();
+      const task = collection.registerEngine(1, engine.address, { from: a2 });
+      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires DEFAULT_ADMIN_ROLE');
+    });
+    it('should use registered sequence engine', async () => {
+      const { collection } = await factory();
+      const [tokenId] = TOKENS;
+      await simpleMint(collection, tokenId);
+      const engine = await MockSequenceEngine.new();
+      await collection.registerEngine(1, engine.address);
+      assert.equal(await collection.getTokenState(tokenId), 0);
+      await collection.setTokenState([{ tokenId, input: 1 }]);
+      assert.equal(await collection.getTokenState(tokenId), 1);
+      await collection.setTokenState([{ tokenId, input: 1 }]);
+      assert.equal(await collection.getTokenState(tokenId), 2);
+      await collection.setTokenState([{ tokenId, input: 100 }]);
+      assert.equal(await collection.getTokenState(tokenId), 102);
     });
   });
 });

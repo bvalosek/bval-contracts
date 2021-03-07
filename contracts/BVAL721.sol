@@ -90,6 +90,11 @@ contract BVAL721 is Base721, ITokenState {
     return _baseDailyRate;
   }
 
+  // get the sequence engine contract for a sequence
+  function getEngine(uint16 sequenceNumber) external view returns (ISequenceEngine) {
+    return _engines[sequenceNumber];
+  }
+
   // ---
   // Token Locking
   // ---
@@ -125,7 +130,8 @@ contract BVAL721 is Base721, ITokenState {
     for (uint i = 0; i < entries.length; i++) {
       uint256 tokenId = entries[i].tokenId;
       uint256 input = entries[i].input;
-      uint256 state = input;
+      uint256 state = _tokenStates[tokenId];
+      uint256 next = input;
       address owner = ownerOf(tokenId);
       require(isMutator || owner == msgSender, "not token owner");
       require(_tokenLockExpiresAt[tokenId] <= timestamp, "token is locked");
@@ -134,7 +140,7 @@ contract BVAL721 is Base721, ITokenState {
       // there and use the return value as the next stage
       ISequenceEngine engine = _engines[tokenId.tokenSequenceNumber()];
       if (engine != ISequenceEngine(address(0))) {
-        state = engine.processStateChange(tokenId, owner, input, state);
+        next = engine.processStateChange(tokenId, owner, input, state);
       }
 
       // transfer any burn amount back to the claim pool
@@ -143,8 +149,8 @@ contract BVAL721 is Base721, ITokenState {
         _bvalTokenContract.transferFrom(msgSender, self, burn);
       }
 
-      _tokenStates[tokenId] = state;
-      emit TokenState(tokenId, input, state);
+      _tokenStates[tokenId] = next;
+      emit TokenState(tokenId, input, next);
     }
   }
 
