@@ -2,8 +2,8 @@
 
 pragma solidity ^0.8.0;
 
-import "../utils/Context.sol";
-import "../utils/introspection/ERC165.sol";
+import "./Context.sol";
+import "./ERC165.sol";
 
 /**
  * @dev External interface of AccessControl declared to support ERC165 detection.
