@@ -8,10 +8,6 @@ library TokenID {
     return uint8(tokenId >> 31*8);
   }
 
-  function tokenChecksum(uint256 tokenId) internal pure returns (uint8) {
-    return uint8(tokenId >> 30*8);
-  }
-
   function tokenSequenceNumber(uint256 tokenId) internal pure returns (uint16) {
     return uint16(tokenId >> 28*8);
   }
@@ -30,7 +26,7 @@ library TokenID {
   }
 
   function isTokenValid(uint256 tokenId) internal pure returns (bool) {
-    uint8 checksum = TokenID.tokenChecksum(tokenId);
+    uint8 checksum = uint8(tokenId >> 30 * 8);
     uint256 masked = tokenId & 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
     uint8 computed = uint8(uint256(keccak256(abi.encodePacked(masked))));
     return checksum == computed;

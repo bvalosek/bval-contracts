@@ -44,40 +44,6 @@ contract('BVAL20', (accounts) => {
       assert.equal(symbol, 'BVAL');
     });
   });
-  describe('deadmans switch', () => {
-    it('should not allow minting after deadmans switch is tripped', async () => {
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-02-28'));
-      const instance = await factory();
-      await instance.mintTo(instance.address, 10000); // doesnt revert
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2022-02-28'));
-      const task = instance.mintTo(instance.address, 10000); // does revert
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'has been tripped');
-    });
-    it('should not allow unless caller has MINTER role', async () => {
-      const [a1, a2] = accounts;
-      const instance = await factory();
-      const task = instance.mintTo(a1, 1000, { from: a2 });
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'requires MINTER_ROLE');
-      await instance.grantRole(await instance.MINTER_ROLE(), a2);
-      await instance.mintTo(a1, 1000, { from: a2 }); // does not revert
-      assert.equal(await instance.balanceOf(a1), 1000);
-    });
-    it('should return isAlive', async () => {
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-02-28'));
-      const instance = await factory();
-      assert.isTrue(await instance.isAlive());
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2022-02-28'));
-      assert.isFalse(await instance.isAlive());
-    });
-    it('should not allow resetting timer after switch has tripped', async () => {
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2021-02-28'));
-      const instance = await factory();
-      await timeMachine.advanceBlockAndSetTime(createTimestamp('2022-02-28'));
-
-      const task = instance.pingDeadmanSwitch();
-      await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'has been tripped');
-    });
-  });
   describe('OPERATOR_ROLE functionality', () => {
     it('should allow an account with OPERATOR_ROLE the ability to move tokens without allowance', async () => {
       const [a1, a2, a3] = accounts;
@@ -107,10 +73,33 @@ contract('BVAL20', (accounts) => {
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'burn amount exceeds balance');
     });
     it('should not allow burning more than balance', async () => {
-      const [a1] = accounts;
       const instance = await factory();
       const task = instance.burn(1000);
       await truffleAssert.fails(task, truffleAssert.ErrorType.REVERT, 'burn amount exceeds balance');
+    });
+  });
+  describe('role renouncement', () => {
+    // mostly proving to myself this works like i think it does, this is
+    // really testing the underlying AccessControl functionality from open zep
+    it('should allow eventual minting lockout', async () => {
+      const [a1, a2] = accounts;
+      const instance = await factory();
+      await instance.revokeRole(await instance.MINTER_ROLE(), a1);
+      await instance.revokeRole(await instance.MINTER_ADMIN_ROLE(), a1);
+
+      // can no longer mint
+      const task1 = instance.mintTo(a1, 1000);
+      await truffleAssert.fails(task1, truffleAssert.ErrorType.REVERT, 'requires MINTER_ROLE');
+
+      // can no longer assign mint role
+      const task2 = instance.grantRole(await instance.MINTER_ROLE(), a1);
+      await truffleAssert.fails(task2, truffleAssert.ErrorType.REVERT, 'sender must be an admin to grant');
+
+      assert.equal(await instance.getRoleMemberCount(await instance.MINTER_ROLE()), 0);
+      assert.equal(await instance.getRoleMemberCount(await instance.MINTER_ADMIN_ROLE()), 0);
+
+      // can still grant operator role
+      await instance.grantRole(await instance.OPERATOR_ROLE(), a2);
     });
   });
 });

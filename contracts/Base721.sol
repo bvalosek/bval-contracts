@@ -11,7 +11,11 @@ import "./interfaces/IERC2981.sol";
 import "./interfaces/ITokenMetadata.sol";
 
 // A general enumerable/metadata-enabled 721 contract with several extra
-// features added:
+// features added. Beyond the opinionated URL format for tokenURI /
+// collectionURI, this is not any BVAL-specific stuff and can be used as a
+// general ERC-721 base
+//
+// Adds:
 // - emitting token metadata via event logs
 // - royality support (rarible, EIP2981)
 // - RBAC via AccessControlEnumerable
