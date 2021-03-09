@@ -10,19 +10,25 @@ import "./interfaces/IRaribleRoyalties.sol";
 import "./interfaces/IERC2981.sol";
 import "./interfaces/ITokenMetadata.sol";
 
+import "./Sequenced.sol";
+import "./TokenID.sol";
+
 // A general enumerable/metadata-enabled 721 contract with several extra
-// features added. Beyond the opinionated URL format for tokenURI /
-// collectionURI, this is not any BVAL-specific stuff and can be used as a
-// general ERC-721 base
+// features added + opinionated tokenURI semantics
 //
 // Adds:
 // - emitting token metadata via event logs
 // - royality support (rarible, EIP2981)
 // - RBAC via AccessControlEnumerable
 // - tokenURI computed by tokenID and overrideable per-token
-contract Base721 is
+// - tokenID parsing/validation
+// - sequenced functionality
+contract CoreERC721 is
   // openzep bases
   AccessControlEnumerable, ERC721Enumerable,
+
+  // sequenced functionality
+  Sequenced,
 
   // my interfaces
   ITokenMetadata,
@@ -33,6 +39,7 @@ contract Base721 is
   {
 
   using Strings for uint256;
+  using TokenID for uint256;
 
   // royality fee BPS (1/100ths of a percent, eg 1000 = 10%)
   uint16 private immutable _feeBps;
@@ -106,6 +113,52 @@ contract Base721 is
   }
 
   // ---
+  // Minting
+  // ---
+
+  // mint a new token for the contract owner and emit metadata as an event
+  function mint(
+    uint256 tokenId,
+    string memory name_,
+    string memory description_,
+    string memory data_) external {
+      address msgSender = _msgSender();
+      require(hasRole(MINTER_ROLE, msgSender), "requires MINTER_ROLE");
+      require(tokenId.isTokenValid() == true, "malformed token");
+      require(tokenId.tokenVersion() > 0, "invalid token version");
+      require(getSequenceState(tokenId.tokenSequenceNumber()) == SequenceState.STARTED, "sequence is not active");
+
+      _mint(msgSender, tokenId);
+      emit TokenMetadata(tokenId, name_, description_, data_);
+
+      // emit rarible royalty info
+      address[] memory recipients = new address[](1);
+      recipients[0] = _royaltyRecipient;
+      emit SecondarySaleFees(tokenId, recipients, getFeeBps(tokenId));
+  }
+
+  // ---
+  // Sequences
+  // ---
+
+  // start sequence
+  function startSequence(
+    uint16 number,
+    string memory name_,
+    string memory description_,
+    string memory data_) override external {
+      require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
+      _startSequence(number, name_, description_, data_);
+  }
+
+  // complete the sequence
+  function completeSequence(uint16 number) override external {
+    require(hasRole(MINTER_ROLE, _msgSender()), "requires MINTER_ROLE");
+    _completeSequence(number);
+  }
+
+
+  // ---
   // Metadata
   // ---
 
@@ -155,13 +208,6 @@ contract Base721 is
     return ret;
   }
 
-  // should be called on mint
-  function _emitSecondarySaleInfo(uint256 tokenId) internal {
-    address[] memory recipients = new address[](1);
-    recipients[0] = _royaltyRecipient;
-    emit SecondarySaleFees(tokenId, recipients, getFeeBps(tokenId));
-  }
-
   // ---
   // More royalities (mintable?) / EIP-2981
   // ---
@@ -180,6 +226,7 @@ contract Base721 is
     return interfaceId == type(IERC2981).interfaceId
       || interfaceId == type(IOpenSeaContractURI).interfaceId
       || interfaceId == type(IRaribleRoyalties).interfaceId
+      // covers ERC721, ERC721Metadata, ERC721Enumerable
       || super.supportsInterface(interfaceId);
   }
 
