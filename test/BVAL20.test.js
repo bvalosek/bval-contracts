@@ -1,6 +1,6 @@
 const BVAL20 = artifacts.require('BVAL20');
 
-const factory = async (startDate = '2021-02-07') => {
+const factory = async () => {
   return BVAL20.new();
 };
 
