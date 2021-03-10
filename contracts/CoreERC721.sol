@@ -8,7 +8,6 @@ import "./@openzeppelin/ERC721Enumerable.sol";
 import "./interfaces/IOpenSeaContractURI.sol";
 import "./interfaces/IRaribleRoyalties.sol";
 import "./interfaces/IERC2981.sol";
-import "./interfaces/ITokenMetadata.sol";
 
 import "./Sequenced.sol";
 import "./TokenID.sol";
@@ -30,9 +29,6 @@ contract CoreERC721 is
   // sequenced functionality
   Sequenced,
 
-  // my interfaces
-  ITokenMetadata,
-
   // marketplace interfaces
   IRaribleRoyalties, IOpenSeaContractURI, IERC2981
 
@@ -40,6 +36,12 @@ contract CoreERC721 is
 
   using Strings for uint256;
   using TokenID for uint256;
+
+  // announce token metadata
+  event TokenMetadata(uint256 indexed tokenId, string name, string description, string data);
+
+  // announce collection data
+  event CollectionMetadata(string name, string description, string data);
 
   // royality fee BPS (1/100ths of a percent, eg 1000 = 10%)
   uint16 private immutable _feeBps;
